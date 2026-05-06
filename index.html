@@ -1,693 +1,308 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RDS.CONSULTA | ALMOXARIFADO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDS.CONSULTA | Almoxarifado Inteligente</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        :root {
-            --primary: #71c9ff;
-            --primary-dark: #1e6f8f;
-            --accent: #007aff;
-            --bg: #f4f7fc;
-            --surface: #ffffff;
-            --text: #0f172a;
-            --text-light: #5b6e8c;
-            --border: #e2edf2;
-            --radius-xl: 28px;
-            --radius-lg: 20px;
-            --transition: all 0.25s ease;
-        }
-
-        body {
-            background: var(--bg);
-            color: var(--text);
-            overflow-x: hidden;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes scaleIn {
-            from {
-                opacity: 0;
-                transform: scale(0.92);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        /* LOGIN SCREEN */
-        #login-screen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(145deg, #7cd3ff 0%, #226f8f 100%);
-            z-index: 5000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(8px);
-            padding: 36px 28px;
-            border-radius: 40px;
-            width: 100%;
-            max-width: 360px;
-            box-shadow: 0 30px 45px -15px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            animation: scaleIn 0.4s ease;
-        }
-
-        .login-card h1 {
-            font-weight: 800;
-            font-size: 28px;
-            color: var(--primary-dark);
-            letter-spacing: -0.5px;
-        }
-
-        .input-group {
-            position: relative;
-            margin-bottom: 16px;
-        }
-
-        .input-group i {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--primary-dark);
-        }
-
-        .login-input {
-            width: 100%;
-            padding: 14px 16px 14px 48px;
-            border-radius: 24px;
-            border: 1.5px solid var(--border);
-            outline: none;
-            font-size: 15px;
-            font-weight: 500;
-            background: white;
-        }
-
-        .login-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(113, 201, 255, 0.2);
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 14px;
-            border-radius: 28px;
-            border: none;
-            background: var(--primary-dark);
-            color: white;
-            font-weight: 800;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 12px;
-            transition: 0.2s;
-        }
-
-        .btn-login:active {
-            transform: scale(0.97);
-        }
-
-        /* APP HEADER */
-        header {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(20px);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            padding: 14px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 18px;
-        }
-
-        .header-title {
-            font-weight: 800;
-            font-size: 20px;
-            color: var(--primary-dark);
-            margin-bottom: 12px;
-        }
-
-        .search-bar {
-            position: relative;
-            margin-bottom: 18px;
-        }
-
-        .search-bar i {
-            position: absolute;
-            left: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--primary-dark);
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 14px 14px 14px 48px;
-            border-radius: 30px;
-            border: 1px solid var(--border);
-            background: white;
-            font-size: 15px;
-            font-weight: 500;
-            outline: none;
-        }
-
-        /* TABS + MAQUINA FILTER */
-        .filters-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 6px;
-            scrollbar-width: thin;
-        }
-
-        .tab, .machine-tab {
-            padding: 8px 18px;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 40px;
-            white-space: nowrap;
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-light);
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .tab.active, .machine-tab.active {
-            background: var(--primary-dark);
-            color: white;
-            border-color: var(--primary-dark);
-        }
-
-        .machine-scroll {
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding-bottom: 6px;
-        }
-
-        /* GRID cards */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
-            margin-top: 20px;
-            padding-bottom: 100px;
-        }
-
-        .card {
-            background: var(--surface);
-            border-radius: 24px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            transition: 0.2s;
-            animation: fadeIn 0.4s ease;
-            cursor: pointer;
-        }
-
-        .card:active {
-            transform: scale(0.97);
-        }
-
-        .img-container {
-            width: 100%;
-            aspect-ratio: 1/1;
-            background: #f0f4f9;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .img-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: 0.4s;
-        }
-
-        .badge-qty {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.65);
-            backdrop-filter: blur(4px);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 50px;
-            font-size: 10px;
-            font-weight: 800;
-        }
-
-        .card-info {
-            padding: 12px;
-        }
-
-        .card-wk {
-            font-size: 10px;
-            font-weight: 800;
-            color: var(--primary-dark);
-            text-transform: uppercase;
-        }
-
-        .card-code {
-            font-size: 15px;
-            font-weight: 800;
-            color: var(--text);
-            display: block;
-            letter-spacing: -0.3px;
-        }
-
-        .card-desc {
-            font-size: 11px;
-            color: var(--text-light);
-            margin: 5px 0;
-            font-weight: 600;
-            height: 34px;
-            overflow: hidden;
-        }
-
-        .loc-tag {
-            background: #eef2ff;
-            color: var(--accent);
-            padding: 3px 8px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-block;
-        }
-
-        /* DOCK */
-        .dock {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 85%;
-            max-width: 340px;
-            background: #0f172aee;
-            backdrop-filter: blur(20px);
-            padding: 8px 12px;
-            border-radius: 34px;
-            display: flex;
-            justify-content: space-around;
-            z-index: 2000;
-            box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.4);
-        }
-
-        .dock-item {
-            color: #9aa9bf;
-            text-decoration: none;
-            text-align: center;
-            font-size: 10px;
-            font-weight: 700;
-            transition: 0.2s;
-            padding: 6px 12px;
-            border-radius: 30px;
-        }
-
-        .dock-item.active {
-            color: var(--primary);
-            background: #1e2a3a;
-        }
-
-        .dock-item i {
-            font-size: 24px;
-            display: block;
-        }
-
-        .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.6);
-            z-index: 4000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            backdrop-filter: blur(6px);
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            width: 100%;
-            max-width: 380px;
-            border-radius: 36px;
-            padding: 28px 22px;
-            animation: scaleIn 0.25s ease;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="login-screen">
     <div class="login-card">
-        <div style="background: var(--primary-dark); width: 64px; height: 64px; border-radius: 24px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-            <i class="material-icons-round" style="color: white; font-size: 38px;">inventory_2</i>
+        <div class="login-icon">
+            <i class="material-icons-round">inventory_2</i>
         </div>
         <h1>RDS.CONSULTA</h1>
-        <p style="margin: 8px 0 20px;">almoxarifado inteligente</p>
+        <p class="login-sub">almoxarifado inteligente</p>
         <div class="input-group">
             <i class="material-icons-round">person</i>
-            <input type="text" id="user" class="login-input" placeholder="Usuário">
+            <input type="text" id="user" class="login-input" placeholder="Usuario" autocomplete="off">
         </div>
         <div class="input-group">
             <i class="material-icons-round">lock</i>
             <input type="password" id="pass" class="login-input" placeholder="Senha">
         </div>
         <button class="btn-login" onclick="handleLogin()">ACESSAR SISTEMA</button>
+        <p class="version-text">v4.0 • almoxarifado inteligente</p>
     </div>
 </div>
 
+<!-- APP PRINCIPAL -->
 <div id="app" class="hidden">
+    <!-- HEADER -->
     <header>
         <div class="container">
-            <div class="header-title">📦 RDS.CONSULTA</div>
-            <div class="search-bar">
-                <i class="material-icons-round">search</i>
-                <input type="text" id="mainSearch" class="search-input" placeholder="Buscar por código, descrição ou máquina...">
+            <div class="header-top">
+                <div class="header-title">
+                    <i class="material-icons-round">inventory_2</i>
+                    <span>RDS.CONSULTA</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">
+                        <i class="material-icons-round" id="themeIcon">dark_mode</i>
+                        <span>Tema</span>
+                    </button>
+                    <button class="btn-icon" onclick="openNFModal()" title="Nota Fiscal">
+                        <i class="material-icons-round">receipt_long</i>
+                        <span>NF</span>
+                    </button>
+                    <button class="btn-icon" onclick="openSaidaModal()" title="Saida de Material">
+                        <i class="material-icons-round">output</i>
+                        <span>Saida</span>
+                    </button>
+                    <button class="btn-icon" onclick="showExportMenu()" title="Exportar">
+                        <i class="material-icons-round">download</i>
+                        <span>Exportar</span>
+                    </button>
+                    <button class="btn-icon" onclick="handleLogout()" title="Sair">
+                        <i class="material-icons-round">logout</i>
+                    </button>
+                </div>
             </div>
-            <div class="filters-wrapper">
-                <div class="tabs" id="catTabs">
-                    <div class="tab active" data-filter="Todos">📌 Todos</div>
-                    <div class="tab" data-filter="FILTRO">🔧 Filtros</div>
-                    <div class="tab" data-filter="PECAS">⚙️ Peças</div>
+            <div class="stats-bar" id="statsBar"></div>
+            <div class="search-row">
+                <div class="search-bar">
+                    <i class="material-icons-round">search</i>
+                    <input type="text" id="mainSearch" class="search-input" placeholder="Buscar por codigo, descricao ou maquina... (Ctrl+K)">
+                    <button class="btn-clear-search hidden" id="btnClearSearch" onclick="clearSearch()">
+                        <i class="material-icons-round">close</i>
+                    </button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="material-icons-round" style="font-size: 18px; color: var(--primary-dark);">memory</i>
-                    <span style="font-weight: 600; font-size: 12px;">Máquinas:</span>
-                </div>
-                <div class="machine-scroll" id="machineFilterContainer"></div>
+                <button class="btn-icon btn-scanner" onclick="startScanner()" title="Escanear Codigo de Barras">
+                    <i class="material-icons-round">qr_code_scanner</i>
+                </button>
             </div>
         </div>
     </header>
 
-    <main class="container">
-        <section id="view-estoque">
-            <div class="grid" id="productGrid"></div>
-        </section>
-        <section id="view-historico" class="hidden">
-            <h2 style="margin: 20px 0 12px; font-size: 20px;">📋 Histórico de consultas</h2>
-            <div id="historyLog" style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 100px;"></div>
-        </section>
-    </main>
-
-    <div class="modal" id="itemModal" onclick="closeModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div id="modalData"></div>
-            <button class="btn-login" onclick="closeModal()" style="margin-top: 20px;">FECHAR</button>
+    <!-- FILTROS -->
+    <div class="filters-container">
+        <div class="container">
+            <div class="filters-row">
+                <div class="tabs" id="catTabs">
+                    <div class="tab active" data-filter="Todos">Todos</div>
+                    <div class="tab" data-filter="FILTRO">Filtros</div>
+                    <div class="tab" data-filter="PECAS">Pecas</div>
+                    <div class="tab" data-filter="CALDERARIA">Caldeiraria</div>
+                    <div class="tab tab-alert" data-filter="PENDENTES">
+                        Pendentes <span class="badge-count hidden" id="pendentesCount">0</span>
+                    </div>
+                    <div class="tab tab-preventiva" data-filter="PREVENTIVAS">
+                        Preventivas <span class="badge-count hidden" id="preventivasCount">0</span>
+                    </div>
+                </div>
+                <div class="machine-filter">
+                    <span class="filter-label">
+                        <i class="material-icons-round">memory</i> Maquina:
+                    </span>
+                    <select id="machineSelect" class="machine-select" onchange="onMachineChange()">
+                        <option value="Todas">Todas</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
 
-    <nav class="dock">
-        <a href="#" class="dock-item active" onclick="changeView('estoque', this)">
-            <i class="material-icons-round">inventory</i><span>Estoque</span>
-        </a>
-        <a href="#" class="dock-item" onclick="changeView('historico', this)">
-            <i class="material-icons-round">history</i><span>Histórico</span>
-        </a>
-    </nav>
+    <!-- CONTEUDO PRINCIPAL -->
+    <main class="container">
+        <!-- Grid de Produtos -->
+        <div class="grid" id="productGrid"></div>
+        
+        <!-- Grid de Preventivas -->
+        <div class="preventivas-grid hidden" id="preventivasGrid"></div>
+        
+        <div class="empty-state hidden" id="emptyState">
+            <i class="material-icons-round">search_off</i>
+            <p>Nenhum item encontrado</p>
+        </div>
+    </main>
+
+    <!-- PAGINACAO -->
+    <div class="pagination hidden" id="pagination">
+        <button class="btn-page" onclick="prevPage()">
+            <i class="material-icons-round">chevron_left</i>
+        </button>
+        <span class="page-info" id="pageInfo">1 de 1</span>
+        <button class="btn-page" onclick="nextPage()">
+            <i class="material-icons-round">chevron_right</i>
+        </button>
+    </div>
 </div>
 
-<script>
-    // ======================= USERS =========================
-    const USERS = {
-        "daniel": "102030",
-        "kaiky": "102030",
-        "karen": "102030",
-        "lidiane": "102030",
-        "joão pedro": "102030",
-        "joaopedro": "102030"
-    };
+<!-- SCANNER MODAL -->
+<div class="modal" id="scannerModal" onclick="stopScanner()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Escanear Codigo de Barras</h3>
+            <button class="btn-close" onclick="stopScanner()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <div id="qr-reader" style="width:100%; border-radius:16px; overflow:hidden;"></div>
+        <div id="qr-reader-results" style="margin-top:12px; text-align:center;"></div>
+        <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;">
+            <i class="material-icons-round">stop</i> Parar Scanner
+        </button>
+    </div>
+</div>
 
-    // ======================= COMPLETE ESTOQUE (JSON integrado) ===================
-    const ESTOQUE_RAW = [
-        { "cod1": "OFL-0602E", "cod2": "89900", "desc": "FILTRO OLEO DO MOTOR", "tipo": "FILTRO", "maquina": "EURO 6", "qtd": 1000, "local": "B48", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_942130-MLB83014109309_032025-F.webp" },
-        { "cod1": "OFC-1805 E", "cod2": "89885", "desc": "FILTRO RACOR", "tipo": "FILTRO", "maquina": "EURO 5", "qtd": 1000, "local": "B42", "imgUrl": "https://turbodieselrse.com.br/wp-content/uploads/2025/04/ofc1805efiltrodecombustivel-06703-1-1.png" },
-        { "cod1": "P550529", "cod2": "141433", "desc": "FILTRO COBUSTIVEL", "tipo": "FILTRO", "maquina": "EURO 5", "qtd": 1000, "local": "B37", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_864692-MLB75819363349_042024-F.webp" },
-        { "cod1": "P550596", "cod2": "131096", "desc": "FILTRO DE OLEO", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "B34", "imgUrl": "https://tse1.mm.bing.net/th/id/OIP.zu3n2M-klahj_7ICltes3gHaF7?rs=1&pid=ImgDetMain" },
-        { "cod1": "P954869", "cod2": "004975", "desc": "FILTRO DE AR VOLVO", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B53", "imgUrl": "https://cdn.autodoc.de/thumb?id=11828493&m=0&n=0&lng=pt&rev=94078017" },
-        { "cod1": "HU721", "cod2": "89939", "desc": "FILTRO DA CAIXA DE MARCHA", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B53", "imgUrl": "https://s7g10.scene7.com/is/image/mannhummel/HU_721.6_x_KIT?qlt=82" },
-        { "cod1": "H 601/10", "cod2": "84445", "desc": "FILTRO DA DIREÇÃO", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B54", "imgUrl": "https://th.bing.com/th/id/R.51d3046765fe43b85c1842ce416242d6" },
-        { "cod1": "P956170", "cod2": "132351", "desc": "FILTRO DA BOMBA DE INJEÇÃO", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B53", "imgUrl": "https://tse1.mm.bing.net/th/id/OIP.Krt5je4KSaH1KMYcjQHqLwHaE8" },
-        { "cod1": "OFC-1815", "cod2": "90279", "desc": "FILTRO COMBUSTIVEL RACOR", "tipo": "FILTRO", "maquina": "EURO 6", "qtd": 1000, "local": "B43", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_830489-MLB106391611248_022026-F.webp" },
-        { "cod1": "P579389", "cod2": "59401", "desc": "FILTRO RACOR", "tipo": "FILTRO", "maquina": "EURO 5", "qtd": 1000, "local": "B42", "imgUrl": "https://tse3.mm.bing.net/th/id/OIP.ZNzWzmyoaBF2MZn64PXWJQHaHa" },
-        { "cod1": "P951413", "cod2": "71129", "desc": "FILTRO SECADOR DE AR", "tipo": "FILTRO", "maquina": "EURO 5", "qtd": 1000, "local": "B50", "imgUrl": "https://tse4.mm.bing.net/th/id/OIP.SRi2kG7jq_oZGh16PvrRWgHaFj" },
-        { "cod1": "OFC-1904E", "cod2": "89891", "desc": "FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "EURO 6", "qtd": 1000, "local": "B47", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_910695-MLB106391819456_022026-F.webp" },
-        { "cod1": "OFC-1814 E", "cod2": "90262", "desc": "PRE FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "all", "qtd": 1000, "local": "B44", "imgUrl": "https://filtrosturbo.com.br/wp-content/uploads/imagens-produtos/TCE1804.jpg" },
-        { "cod1": "W 950/26", "cod2": "63118", "desc": "FILTRO OLEO LUBRIFICANTE", "tipo": "FILTRO", "maquina": "CG-011", "qtd": 1000, "local": "B33", "imgUrl": "https://tse1.mm.bing.net/th/id/OIP.KYdIxuq0beLstcx433S4ogHaE7" },
-        { "cod1": "20580233", "cod2": "59068", "desc": "FILTRO DIREÇÃO", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B53", "imgUrl": "https://th.bing.com/th/id/OIP.Lm1vvYrRfgYm6m7oOW6RigHaGq" },
-        { "cod1": "P576663", "cod2": "63041", "desc": "FILTRO DE OLEO", "tipo": "FILTRO", "maquina": "CG-011", "qtd": 1000, "local": "B33", "imgUrl": "https://tse2.mm.bing.net/th/id/OIP.5sZqGkRm5cLCG2qLH0DMrAHaHa" },
-        { "cod1": "OFC-1810E", "cod2": "74889", "desc": "FILTRO OLEO DO MOTOR", "tipo": "FILTRO", "maquina": "CM-012", "qtd": 1000, "local": "B33", "imgUrl": "https://filtrosturbo.com.br/wp-content/uploads/imagens-produtos/TCE1804.jpg" },
-        { "cod1": "3223155", "cod2": "114531", "desc": "FILTRO OLEO DO MOTOR CAT 336", "tipo": "FILTRO", "maquina": "CAT 336", "qtd": 1000, "local": "B33", "imgUrl": "https://th.bing.com/th/id/OIP.CCnEjpSsw0rLz0BIcRCbeQHaFj" },
-        { "cod1": "P55077", "cod2": "90501", "desc": "FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "all", "qtd": 1000, "local": "B27", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_852046-MLB105390690249_012026-F.webp" },
-        { "cod1": "P551864", "cod2": "96550", "desc": "PRE FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "WA380", "qtd": 1000, "local": "B27", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_711346-MLB109788629565_032026-F.webp" },
-        { "cod1": "C37480", "cod2": "84468", "desc": "FILTRO DE AR CABINE", "tipo": "FILTRO", "maquina": "CG-011", "qtd": 1000, "local": "B31", "imgUrl": "https://m.media-amazon.com/images/I/61W-66RJRPL._AC_SX450_.jpg" },
-        { "cod1": "WG1365", "cod2": "34439", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "CG-011", "qtd": 1000, "local": "B33", "imgUrl": "https://th.bing.com/th/id/OIP.i0oQbvFLC8M0uNipS9PzyAHaHZ" },
-        { "cod1": "8143691", "cod2": "8143691", "desc": "FILTRO DE AR CABINE", "tipo": "FILTRO", "maquina": "EURO 5 / EURO 6", "qtd": 1000, "local": "B52", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_670157-MLB77401513508_072024-F.webp" },
-        { "cod1": "P553200", "cod2": "95503", "desc": "FILTRO SEPARADOR DE AGUA", "tipo": "FILTRO", "maquina": "D155", "qtd": 1000, "local": "B28", "imgUrl": "https://tse2.mm.bing.net/th/id/OIP.UPQZE4xgQTBGnqkFJVtCmwHaHa" },
-        { "cod1": "WEK057", "cod2": "92396", "desc": "FILTRO DE TRANSMISSÃO", "tipo": "FILTRO", "maquina": "CAT 966", "qtd": 1000, "local": "A38", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_981310-MLB82882666460_032025-F.webp" },
-        { "cod1": "FCD0830", "cod2": "59051", "desc": "FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "CAT 966", "qtd": 1000, "local": "A38", "imgUrl": "https://tse4.mm.bing.net/th/id/OIP.fMmaVO7adpKRgsgIjZgzHAHaFk" },
-        { "cod1": "60210416", "cod2": "60433", "desc": "FILTRO DE RETORNO", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "A33", "imgUrl": "https://image.made-in-china.com/202f0j00vtIBLrqHgbkl/60210416-Hydraulic-Filter-for-Sany-Excavator.webp" },
-        { "cod1": "523-4987", "cod2": "60730", "desc": "FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "CAT 966", "qtd": 996, "local": "A38", "imgUrl": "https://cdn.awsli.com.br/300x300/1040/1040621/produto/95493825/3c18b811e0.jpg" },
-        { "cod1": "GLQ008471460", "cod2": "131140", "desc": "FILTRO OLEO HIDRAULICO", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "A49", "imgUrl": "https://tse2.mm.bing.net/th/id/OIP.Lp4rkqbKkqX4JYOVhrJo8wHaHa" },
-        { "cod1": "P502424", "cod2": "72962", "desc": "PRE FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "all", "qtd": 1000, "local": "A52", "imgUrl": "https://th.bing.com/th/id/OPHS.LXnzGHXRVnYxeA474C474" },
-        { "cod1": "E2921LI", "cod2": "92982", "desc": "FILTRO DE AR", "tipo": "FILTRO", "maquina": "D155", "qtd": 0, "local": "A49", "imgUrl": "https://db73q1dut0rlp.cloudfront.net/eyJ3aWR0aCI6MzAwLCJoZWlnaHQiOjMwMCwiZml0IjoiY29udGFpbiJ9.webp" },
-        { "cod1": "P552216", "cod2": "71589", "desc": "FILTRO DIESEL SEPARADOR", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "A47", "imgUrl": "data:image/webp;base64,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" },
-        { "cod1": "P552020", "cod2": "73111", "desc": "FILTRO SEPARADOR DE AGUA 2020TM", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "A50", "imgUrl": "https://th.bing.com/th/id/OIP.V4ssVkJv9ioAQBro1-0OnAAAAA" },
-        { "cod1": "P500138", "cod2": "73022", "desc": "FILTRO AR CONDICIONADO", "tipo": "FILTRO", "maquina": "all", "qtd": 1000, "local": "A42", "imgUrl": "https://th.bing.com/th/id/OIP.eSZLqk3Gul891ASZP_nhbgHaHa" },
-        { "cod1": "500-0957", "cod2": "89968", "desc": "FILTRO AR CONDICIONADO", "tipo": "FILTRO", "maquina": "SANY 500", "qtd": 1000, "local": "A49", "imgUrl": "https://th.bing.com/th/id/OIP.Z_M8PEXpjP95eqBhMonnQwHaHa" },
-        { "cod1": "P550523", "cod2": "78031", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "all", "qtd": 1000, "local": "A33", "imgUrl": "https://th.bing.com/th/id/OIP.9QnB4U4272bkM_KfXtDheQHaHa" },
-        { "cod1": "5000483", "cod2": "5000483", "desc": "FILTRO OLEO DO MOTOR", "tipo": "FILTRO", "maquina": "CAT 966", "qtd": 1000, "local": "A39", "imgUrl": "https://cdn.awsli.com.br/800x800/1040/1040621/produto/234770553/woe843-54c40y6wqx.jpg" },
-        { "cod1": "290-2288", "cod2": "92380", "desc": "FILTRO DE AR CABINE", "tipo": "FILTRO", "maquina": "CAT 966", "qtd": 1000, "local": "A37", "imgUrl": "data:image/webp;base64,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" },
-        { "cod1": "FS20009", "cod2": "77221", "desc": "FILTRO SEPARADOR", "tipo": "FILTRO", "maquina": "CAT D8", "qtd": 1000, "local": "A33", "imgUrl": "https://th.bing.com/th/id/OIP.INQYDcobVLQwozoV94e6-gHaIR" },
-        { "cod1": "FS20007", "cod2": "95207", "desc": "FILTRO RACOR", "tipo": "FILTRO", "maquina": "CAT D8", "qtd": 1000, "local": "A12", "imgUrl": "https://th.bing.com/th/id/OIP.C8XWiGXu-znanAYBt4exswHaHa" },
-        { "cod1": "MX5656", "cod2": "MX5656", "desc": "FILTRO AR CONDICIONADO", "tipo": "FILTRO", "maquina": "CAT D6", "qtd": 1000, "local": "A27", "imgUrl": "https://th.bing.com/th/id/OIP.pa0hQk82b-6DKlstxzMtwAHaCi" },
-        { "cod1": "OFL-0200B", "cod2": "98312", "desc": "FILTRO DE OLEO", "tipo": "FILTRO", "maquina": "CAT 140K", "qtd": 1000, "local": "A33", "imgUrl": "https://cdn.awsli.com.br/600x450/1040/1040621/produto/51874746/c286938e41.jpg" },
-        { "cod1": "P164384", "cod2": "P164384", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "CAT D6", "qtd": 1000, "local": "A32", "imgUrl": "https://th.bing.com/th/id/OIP.b_9fO5qasoCHbipV-s_zPwAAAA" },
-        { "cod1": "1G-8878", "cod2": "1G-8878", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "CAT D6", "qtd": 1000, "local": "A33", "imgUrl": "https://th.bing.com/th/id/R.557d4c536dc8381f3815921e23a0bbdf" },
-        { "cod1": "P-550523", "cod2": "78031", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "CAT D6", "qtd": 1000, "local": "A34", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_998525-MLB42455170894_072020-F.webp" },
-        { "cod1": "P551354", "cod2": "P551354", "desc": "FILTRO SEPARADOR", "tipo": "FILTRO", "maquina": "CAT D6", "qtd": 1000, "local": "A32", "imgUrl": "https://th.bing.com/th/id/R.df6f5faa7d0b25720c3b9562d72d9ea2" },
-        { "cod1": "4343928", "cod2": "60947", "desc": "FILTRO DE COMBUSTIVEL", "tipo": "FILTRO", "maquina": "CAT 336", "qtd": 1000, "local": "A32", "imgUrl": "https://tse2.mm.bing.net/th/id/OIP.jsGm06_YLEoYue_IriDrLgHaEE" },
-        { "cod1": "FCD-3094", "cod2": "95207", "desc": "FILTRO RACOR", "tipo": "FILTRO", "maquina": "CAT D8", "qtd": 1000, "local": "A12", "imgUrl": "https://www.autosede.com.ar/app/files/company_414/products/FCD-3094_cp.jpg" },
-        { "cod1": "4363443", "cod2": "63265", "desc": "FILTRO HIDRAULICO", "tipo": "FILTRO", "maquina": "CAT 336", "qtd": 0, "local": "A32", "imgUrl": "https://tse2.mm.bing.net/th/id/OIP.jsGm06_YLEoYue_IriDrLgHaEE" },
-        { "cod1": "HF29076", "cod2": "HF29076", "desc": "FILTRO DE TRANSMISSÃO", "tipo": "FILTRO", "maquina": "WA380", "qtd": 1000, "local": "A32", "imgUrl": "https://th.bing.com/th/id/OIP.HgPAYgWERD7S6dWQGud9NwHaK7" },
-        { "cod1": "PU 9023 Z", "cod2": "142562", "desc": "FILTRO DE COMBUSTIVEL PRIMARIO", "tipo": "FILTRO", "maquina": "HILUX", "qtd": 4, "local": "A02", "imgUrl": "" },
-        { "cod1": "FAP 9054/1", "cod2": "114229", "desc": "FILTRO AR DO MOTOR", "tipo": "FILTRO", "maquina": "MOBI", "qtd": 2, "local": "A02", "imgUrl": "" },
-        { "cod1": "HF 512D", "cod2": "113129", "desc": "DISCO DE FREIO HILUX", "tipo": "PECAS", "maquina": "HILUX", "qtd": 1000, "local": "A09", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_692452-MLB109468256807_032026-F.webp" },
-        { "cod1": "HF 36A", "cod2": "78597", "desc": "DISCO DE FREIO MOBI", "tipo": "PECAS", "maquina": "MOBI", "qtd": 1000, "local": "A09", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_861235-MLB89166218530_082025-F.webp" },
-        { "cod1": "AL-209", "cod2": "117854", "desc": "CUBO DE RODA DIANTEIRO HILUX", "tipo": "PECAS", "maquina": "all", "qtd": 1000, "local": "A09", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_956309-MLB97073446208_112025-F.webp" },
-        { "cod1": "113106", "cod2": "113106", "desc": "ARTICULAÇÃO AUXILIAR HULIX", "tipo": "PECAS", "maquina": "HILUX", "qtd": 1000, "local": "A08", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_737282-MLA52601279908_112022-O.webp" },
-        { "cod1": "130172", "cod2": "88957", "desc": "PINÇA DE FREIO HILUX", "tipo": "PECAS", "maquina": "HILUX", "qtd": 1000, "local": "A08", "imgUrl": "https://http2.mlstatic.com/D_NQ_NP_2X_727104-MLB92205027087_092025-F.webp" },
-        { "cod1": "OFF", "cod2": "OFF", "desc": "PASTILHA PARA FREIO MOBI", "tipo": "PECAS", "maquina": "MOBI", "qtd": 1000, "local": "A07", "imgUrl": "" },
-        { "cod1": "133497", "cod2": "OFF", "desc": "PASTILHA PARA FREIO L200", "tipo": "PECAS", "maquina": "L200", "qtd": 1000, "local": "A07", "imgUrl": "" },
-        { "cod1": "CU26010/2", "cod2": "", "desc": "FILTRO AR CABINE", "tipo": "FILTRO", "maquina": "SAVEIRO", "qtd": 5, "local": "A03", "imgUrl": "" }
-    ];
-    
-    // lista unica de máquinas para filtro
-    const maquinasSet = new Set();
-    ESTOQUE_RAW.forEach(item => {
-        if (item.maquina && item.maquina.trim()) maquinasSet.add(item.maquina);
-    });
-    const MAQUINAS_LIST = Array.from(maquinasSet).sort();
+<!-- MODAL DETALHES -->
+<div class="modal" id="itemModal" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modalTitle">Detalhes do Item</h3>
+            <button class="btn-close" onclick="closeModal()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <div id="modalData"></div>
+        <div class="modal-actions">
+            <button class="btn-action" onclick="shareViaWhatsApp()">
+                <i class="material-icons-round">share</i> Compartilhar
+            </button>
+            <button class="btn-action btn-primary" onclick="closeModal()">
+                <i class="material-icons-round">check</i> Fechar
+            </button>
+        </div>
+    </div>
+</div>
 
-    let currentFilterType = "Todos";
-    let currentMachineFilter = "Todas"; 
-    let searchTerm = "";
-
-    function filterItems() {
-        let filtered = [...ESTOQUE_RAW];
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(i => 
-                i.cod1.toLowerCase().includes(term) || 
-                i.desc.toLowerCase().includes(term) || 
-                (i.maquina && i.maquina.toLowerCase().includes(term))
-            );
-        }
-        if (currentFilterType !== "Todos") {
-            filtered = filtered.filter(i => i.tipo === currentFilterType);
-        }
-        if (currentMachineFilter !== "Todas") {
-            filtered = filtered.filter(i => i.maquina === currentMachineFilter);
-        }
-        renderProducts(filtered);
-    }
-
-    function renderProducts(data) {
-        const grid = document.getElementById('productGrid');
-        if (!data.length) {
-            grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px;">⚠️ Nenhum item encontrado.</div>`;
-            return;
-        }
-        grid.innerHTML = data.map((item, idx) => `
-            <div class="card" style="animation-delay: ${idx * 0.03}s" onclick="openItem('${item.cod1.replace(/'/g, "\\'")}')">
-                <div class="img-container">
-                    <div class="badge-qty">📦 ${item.qtd} un</div>
-                    <img src="${item.imgUrl || 'https://placehold.co/400x400?text='+encodeURIComponent(item.cod1)}" 
-                         onerror="this.src='https://placehold.co/400x400?text=Sem+imagem'">
+<!-- MODAL NOTA FISCAL -->
+<div class="modal" id="nfModal" onclick="closeNFModal()">
+    <div class="modal-content modal-nf" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Entrada de Nota Fiscal</h3>
+            <button class="btn-close" onclick="closeNFModal()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <form id="nfForm" onsubmit="submitNF(event)">
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Numero NF</label>
+                    <input type="text" id="nfNumero" class="form-input" placeholder="001234" required>
                 </div>
-                <div class="card-info">
-                    <span class="card-wk">🔧 ${item.cod2 || '---'}</span>
-                    <span class="card-code">${item.cod1}</span>
-                    <p class="card-desc">${item.desc.substring(0, 32)}${item.desc.length>32?'…':''}</p>
-                    <span class="loc-tag">📍 ${item.local || 'N/I'}</span>
+                <div class="form-group">
+                    <label>Fornecedor</label>
+                    <input type="text" id="nfFornecedor" class="form-input" placeholder="Fornecedor" required>
                 </div>
             </div>
-        `).join('');
-    }
-
-    function openItem(cod) {
-        const item = ESTOQUE_RAW.find(i => i.cod1 === cod);
-        if (!item) return;
-        const modalDiv = document.getElementById('modalData');
-        modalDiv.innerHTML = `
-            <div style="text-align:center">
-                <img src="${item.imgUrl || 'https://placehold.co/300x300?text='+item.cod1}" style="width:130px; height:130px; border-radius:20px; object-fit:cover; margin-bottom:12px;" 
-                     onerror="this.src='https://placehold.co/300x300?text=Imagem'">
-                <h3 style="color:var(--primary-dark);">${item.cod1}</h3>
-                <p><strong>${item.desc}</strong></p>
-                <div style="background:#f0f4f9; border-radius:24px; padding:12px; margin:15px 0; text-align:left;">
-                    <div>🔖 Código aux: ${item.cod2 || '-'}</div>
-                    <div>🏭 Máquina: ${item.maquina || 'Geral'}</div>
-                    <div>📍 Local: ${item.local}</div>
-                    <div>📦 Estoque: ${item.qtd} unidades</div>
+            <div class="form-group">
+                <label>Codigo do Material</label>
+                <input type="text" id="nfCodigo" class="form-input" placeholder="Codigo" required>
+            </div>
+            <div class="form-group">
+                <label>Descricao</label>
+                <input type="text" id="nfDescricao" class="form-input" placeholder="Descricao" required>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Quantidade</label>
+                    <input type="number" id="nfQuantidade" class="form-input" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Local</label>
+                    <input type="text" id="nfLocal" class="form-input" placeholder="Ex: A01" required>
                 </div>
             </div>
-        `;
-        document.getElementById('itemModal').classList.add('active');
-        saveToHistory(item);
-    }
-
-    function saveToHistory(item) {
-        let history = JSON.parse(localStorage.getItem('rds_history') || '[]');
-        history.unshift({ cod: item.cod1, desc: item.desc, local: item.local, time: new Date().toLocaleString(), maquina: item.maquina });
-        if (history.length > 20) history.pop();
-        localStorage.setItem('rds_history', JSON.stringify(history));
-    }
-
-    function renderHistory() {
-        const history = JSON.parse(localStorage.getItem('rds_history') || '[]');
-        const container = document.getElementById('historyLog');
-        container.innerHTML = history.map(h => `
-            <div class="card" style="display:flex; align-items:center; gap:12px; padding:12px;">
-                <i class="material-icons-round" style="background:#eef2ff; padding:8px; border-radius:50%;">history</i>
-                <div style="flex:1"><strong>${h.cod}</strong><br><small>${h.desc.substring(0,35)}</small><br><small>${h.time}</small></div>
-                <span class="loc-tag">${h.local || '-'}</span>
+            <div class="form-group">
+                <label>Maquina</label>
+                <input type="text" id="nfMaquina" class="form-input" placeholder="Ex: EURO 5" required>
             </div>
-        `).join('');
-        if(history.length === 0) container.innerHTML = '<div class="card" style="padding:20px; text-align:center">Nenhuma consulta registrada.</div>';
-    }
+            <div class="form-group">
+                <label>Observacoes</label>
+                <textarea id="nfObs" class="form-input" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn-login">
+                <i class="material-icons-round">send</i> ENVIAR ENTRADA
+            </button>
+        </form>
+    </div>
+</div>
 
-    function changeView(view, el) {
-        document.querySelectorAll('.dock-item').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
-        document.getElementById('view-estoque').classList.add('hidden');
-        document.getElementById('view-historico').classList.add('hidden');
-        document.getElementById(`view-${view}`).classList.remove('hidden');
-        if(view === 'historico') renderHistory();
-    }
+<!-- MODAL SAIDA DE MATERIAL -->
+<div class="modal" id="saidaModal" onclick="closeSaidaModal()">
+    <div class="modal-content modal-nf" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Saida de Material</h3>
+            <button class="btn-close" onclick="closeSaidaModal()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <form id="saidaForm" onsubmit="submitSaida(event)">
+            <div class="form-group">
+                <label>Codigo do Material</label>
+                <div class="search-with-scanner">
+                    <input type="text" id="saidaCodigo" class="form-input" placeholder="Codigo ou escanear" required oninput="buscarItemSaida()">
+                    <button type="button" class="btn-icon" onclick="startScannerForSaida()" title="Escanear">
+                        <i class="material-icons-round">qr_code_scanner</i>
+                    </button>
+                </div>
+                <div id="saidaItemInfo" style="margin-top:8px; font-size:13px;"></div>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Quantidade</label>
+                    <input type="number" id="saidaQuantidade" class="form-input" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>OS / Numero</label>
+                    <input type="text" id="saidaOS" class="form-input" placeholder="OS ou referencia">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Responsavel</label>
+                <input type="text" id="saidaResponsavel" class="form-input" placeholder="Nome do responsavel" required>
+            </div>
+            <div class="form-group">
+                <label>Observacoes</label>
+                <textarea id="saidaObs" class="form-input" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn-login" style="background:#ef4444;">
+                <i class="material-icons-round">output</i> REGISTRAR SAIDA
+            </button>
+        </form>
+    </div>
+</div>
 
-    function closeModal() { document.getElementById('itemModal').classList.remove('active'); }
+<!-- MODAL EXPORTACAO -->
+<div class="modal" id="exportModal" onclick="closeExportModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Exportar Dados</h3>
+            <button class="btn-close" onclick="closeExportModal()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-login" onclick="exportToExcel()" style="background:#217346;">
+                <i class="material-icons-round">table_view</i> Exportar para Excel
+            </button>
+            <button class="btn-login" onclick="exportToPDF()" style="background:#ef4444;">
+                <i class="material-icons-round">picture_as_pdf</i> Exportar para PDF
+            </button>
+            <button class="btn-login" onclick="exportToJSON()" style="background:#6366f1;">
+                <i class="material-icons-round">code</i> Exportar JSON
+            </button>
+        </div>
+    </div>
+</div>
 
-    // Login handler
-    function handleLogin() {
-        const user = document.getElementById('user').value.toLowerCase().trim();
-        const pass = document.getElementById('pass').value;
-        if (USERS[user] === pass) {
-            const loginDiv = document.getElementById('login-screen');
-            loginDiv.style.opacity = '0';
-            setTimeout(() => {
-                loginDiv.classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                filterItems();
-                renderMachineFilters();
-            }, 300);
-        } else {
-            alert("❌ Acesso negado! Verifique usuário e senha.");
-        }
-    }
+<!-- BOTAO WHATSAPP -->
+<a href="https://wa.me/5531998771435" target="_blank" class="btn-whatsapp" title="WhatsApp">
+    <i class="material-icons-round">chat</i>
+</a>
 
-    function renderMachineFilters() {
-        const container = document.getElementById('machineFilterContainer');
-        container.innerHTML = `<div class="machine-tab ${currentMachineFilter === 'Todas' ? 'active' : ''}" data-machine="Todas">🏭 Todas</div>`;
-        MAQUINAS_LIST.forEach(m => {
-            container.innerHTML += `<div class="machine-tab ${currentMachineFilter === m ? 'active' : ''}" data-machine="${m.replace(/"/g, '&quot;')}">${m}</div>`;
-        });
-        document.querySelectorAll('.machine-tab').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.machine-tab').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentMachineFilter = btn.getAttribute('data-machine');
-                filterItems();
-            });
-        });
-    }
-
-    // event listeners
-    document.getElementById('mainSearch').addEventListener('input', (e) => {
-        searchTerm = e.target.value;
-        filterItems();
-    });
-
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            currentFilterType = tab.getAttribute('data-filter');
-            filterItems();
-        });
-    });
-
-    window.openItem = openItem;
-    window.closeModal = closeModal;
-    window.changeView = changeView;
-    window.handleLogin = handleLogin;
-</script>
+<script src="dados.js"></script>
+<script src="preventivas.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
