@@ -6,8 +6,7 @@ const USERS = {
     "kaiky": "102030",
     "karen": "102030",
     "lidiane": "102030",
-    "joaopedro": "102030",
-    "Paulo": "102030",
+    "joaopedro": "102030"
 };
 
 // ======================= ESTADO GLOBAL =======================
@@ -18,9 +17,13 @@ let currentPage = 1;
 let totalPages = 1;
 let filteredData = [];
 let currentModalItem = null;
+
+// Scanner
 let html5QrCode = null;
 let scannerActive = false;
-let scannerMode = "consulta"; // consulta | saida
+let scannerMode = "consulta";
+let lastScannedCode = "";
+let scanCooldown = false;
 
 // ======================= INICIALIZAÇÃO =======================
 function initApp() {
@@ -42,6 +45,7 @@ function initApp() {
     const maquinasList = Array.from(maquinasSet).sort();
     
     const select = document.getElementById('machineSelect');
+    select.innerHTML = '<option value="Todas">Todas</option>';
     maquinasList.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m;
@@ -81,27 +85,42 @@ function toggleTheme() {
 }
 
 function updateThemeIcon(theme) {
-    document.getElementById('themeIcon').textContent = theme === 'light' ? 'dark_mode' : 'light_mode';
+    const icon = document.getElementById('themeIcon');
+    if (icon) {
+        icon.textContent = theme === 'light' ? 'dark_mode' : 'light_mode';
+    }
 }
 
 // ======================= ATALHOS DE TECLADO =======================
 function handleKeyboard(e) {
+    // Ctrl+K = Busca
     if (e.ctrlKey && e.key === 'k') {
         e.preventDefault();
         document.getElementById('mainSearch').focus();
     }
+    // Ctrl+N = Nova NF
     if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         openNFModal();
     }
+    // Ctrl+P = Pendentes
     if (e.ctrlKey && e.key === 'p') {
         e.preventDefault();
-        document.querySelector('[data-filter="PENDENTES"]').click();
+        const pendentesTab = document.querySelector('[data-filter="PENDENTES"]');
+        if (pendentesTab) pendentesTab.click();
     }
+    // Ctrl+S = Saida
     if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         openSaidaModal();
     }
+    // Ctrl+V = Preventivas
+    if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault();
+        const prevTab = document.querySelector('[data-filter="PREVENTIVAS"]');
+        if (prevTab) prevTab.click();
+    }
+    // ESC = Fechar modais
     if (e.key === 'Escape') {
         closeModal();
         closeNFModal();
@@ -114,7 +133,8 @@ function handleKeyboard(e) {
 // ======================= BUSCA =======================
 function onSearchInput(e) {
     searchTerm = e.target.value;
-    document.getElementById('btnClearSearch').classList.toggle('hidden', !searchTerm);
+    const btnClear = document.getElementById('btnClearSearch');
+    if (btnClear) btnClear.classList.toggle('hidden', !searchTerm);
     currentPage = 1;
     filterItems();
 }
@@ -122,7 +142,8 @@ function onSearchInput(e) {
 function clearSearch() {
     document.getElementById('mainSearch').value = '';
     searchTerm = '';
-    document.getElementById('btnClearSearch').classList.add('hidden');
+    const btnClear = document.getElementById('btnClearSearch');
+    if (btnClear) btnClear.classList.add('hidden');
     currentPage = 1;
     filterItems();
 }
@@ -142,39 +163,45 @@ function onMachineChange() {
     filterItems();
 }
 
-// ======================= FILTRAGEM =======================
+// ======================= STATUS =======================
 function getStockStatus(item) {
     if (item.status === "PENDENTE" || item.qtd <= 0) return "out";
     if (item.estoqueMin && item.qtd <= item.estoqueMin) return "low";
     return "ok";
 }
 
+// ======================= FILTRAGEM =======================
 function filterItems() {
     const preventivasGrid = document.getElementById('preventivasGrid');
     const productGrid = document.getElementById('productGrid');
+    const pagination = document.getElementById('pagination');
+    const empty = document.getElementById('emptyState');
     
+    // Modo Preventivas
     if (currentFilterType === "PREVENTIVAS") {
-        // Modo preventivas
-        productGrid.classList.add('hidden');
-        preventivasGrid.classList.remove('hidden');
+        if (productGrid) productGrid.classList.add('hidden');
+        if (preventivasGrid) preventivasGrid.classList.remove('hidden');
+        if (pagination) pagination.classList.add('hidden');
+        if (empty) empty.classList.add('hidden');
         renderPreventivas();
         updateStats();
-        document.getElementById('pagination').classList.add('hidden');
         return;
     }
     
-    // Modo normal
-    productGrid.classList.remove('hidden');
-    preventivasGrid.classList.add('hidden');
+    // Modo Normal
+    if (productGrid) productGrid.classList.remove('hidden');
+    if (preventivasGrid) preventivasGrid.classList.add('hidden');
     
     let data = [...window.DATA.estoque];
     
+    // Filtro por tipo
     if (currentFilterType === "PENDENTES") {
         data = data.filter(i => i.status === "PENDENTE" || i.qtd <= 0);
     } else if (currentFilterType !== "Todos") {
         data = data.filter(i => i.tipo === currentFilterType);
     }
     
+    // Busca textual
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         data = data.filter(i =>
@@ -187,13 +214,18 @@ function filterItems() {
         );
     }
     
+    // Filtro por maquina
     if (currentMachineFilter !== "Todas") {
         data = data.filter(i => i.maquina === currentMachineFilter);
     }
     
+    // Ordenacao: zerados > baixo estoque > normais (alfabetico)
     data.sort((a, b) => {
         const order = { "out": 0, "low": 1, "ok": 2 };
-        return order[getStockStatus(a)] - order[getStockStatus(b)] || a.desc.localeCompare(b.desc);
+        const sa = order[getStockStatus(a)];
+        const sb = order[getStockStatus(b)];
+        if (sa !== sb) return sa - sb;
+        return a.desc.localeCompare(b.desc);
     });
     
     filteredData = data;
@@ -207,56 +239,72 @@ function filterItems() {
     updatePreventivasCount();
 }
 
-// ======================= RENDERIZAÇÃO =======================
+// ======================= RENDERIZAÇÃO PRODUTOS =======================
 function renderProducts() {
     const grid = document.getElementById('productGrid');
     const empty = document.getElementById('emptyState');
     
     if (!filteredData.length) {
-        grid.innerHTML = '';
-        empty.classList.remove('hidden');
+        if (grid) grid.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
         return;
     }
     
-    empty.classList.add('hidden');
+    if (empty) empty.classList.add('hidden');
     
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     const pageItems = filteredData.slice(start, start + ITEMS_PER_PAGE);
     
-    grid.innerHTML = pageItems.map((item, idx) => {
-        const status = getStockStatus(item);
-        let cardClass = '', badgeClass = '', stockAlertHTML = '';
-        
-        if (status === 'out') { cardClass = 'out-stock'; badgeClass = 'out'; stockAlertHTML = '<span class="stock-alert danger">Zerado</span>'; }
-        else if (status === 'low') { cardClass = 'low-stock'; badgeClass = 'low'; stockAlertHTML = '<span class="stock-alert warning">Baixo</span>'; }
-        if (item.status === 'PENDENTE') cardClass += ' pending';
-        
-        const safeCode = item.cod1.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        
-        return `<div class="card ${cardClass}" style="animation-delay:${idx*0.02}s" onclick="openItem('${safeCode}')">
-            <div class="img-container">
-                <div class="badge-type">${item.tipo||'GERAL'}</div>
-                <div class="badge-qty ${badgeClass}">${item.qtd} un</div>
-                <img src="${item.imgUrl||'https://placehold.co/400x400/f0f4f9/94a3b8?text='+encodeURIComponent(item.cod1.substring(0,6))}" 
-                     onerror="this.src='https://placehold.co/400x400/f0f4f9/94a3b8?text=Sem+imagem'" loading="lazy">
-            </div>
-            <div class="card-info">
-                <span class="card-aux">${item.cod2||'---'}</span>
-                <span class="card-code">${item.cod1}</span>
-                <p class="card-desc">${item.desc.substring(0, 32)}${item.desc.length>32?'...':''}</p>
-                <div class="card-footer">
-                    <span class="loc-tag">${item.local||'N/I'}</span>
-                    ${stockAlertHTML}
+    if (grid) {
+        grid.innerHTML = pageItems.map((item, idx) => {
+            const status = getStockStatus(item);
+            let cardClass = '', badgeClass = '', stockAlertHTML = '';
+            
+            if (status === 'out') {
+                cardClass = 'out-stock';
+                badgeClass = 'out';
+                stockAlertHTML = '<span class="stock-alert danger">Zerado</span>';
+            } else if (status === 'low') {
+                cardClass = 'low-stock';
+                badgeClass = 'low';
+                stockAlertHTML = '<span class="stock-alert warning">Baixo</span>';
+            }
+            if (item.status === 'PENDENTE') cardClass += ' pending';
+            
+            const safeCode = item.cod1.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const imgSrc = item.imgUrl || `https://placehold.co/400x400/f0f4f9/94a3b8?text=${encodeURIComponent(item.cod1.substring(0,6))}`;
+            
+            return `<div class="card ${cardClass}" style="animation-delay:${idx*0.02}s" onclick="openItem('${safeCode}')">
+                <div class="img-container">
+                    <div class="badge-type">${item.tipo||'GERAL'}</div>
+                    <div class="badge-qty ${badgeClass}">${item.qtd} un</div>
+                    <img src="${imgSrc}" onerror="this.src='https://placehold.co/400x400/f0f4f9/94a3b8?text=Sem+imagem'" loading="lazy" alt="${item.desc}">
                 </div>
-            </div>
-        </div>`;
-    }).join('');
+                <div class="card-info">
+                    <span class="card-aux">${item.cod2||'---'}</span>
+                    <span class="card-code">${item.cod1}</span>
+                    <p class="card-desc">${item.desc.substring(0, 32)}${item.desc.length>32?'...':''}</p>
+                    <div class="card-footer">
+                        <span class="loc-tag">${item.local||'N/I'}</span>
+                        ${stockAlertHTML}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
 }
 
+// ======================= RENDERIZAÇÃO PREVENTIVAS =======================
 function renderPreventivas() {
     const grid = document.getElementById('preventivasGrid');
     const empty = document.getElementById('emptyState');
-    let data = window.PREVENTIVAS || [];
+    
+    if (!window.PREVENTIVAS || !window.PREVENTIVAS.length) {
+        if (grid) grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">Nenhuma preventiva cadastrada</div>';
+        return;
+    }
+    
+    let data = [...window.PREVENTIVAS];
     
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -272,58 +320,59 @@ function renderPreventivas() {
     }
     
     if (!data.length) {
-        grid.innerHTML = '';
-        empty.classList.remove('hidden');
+        if (grid) grid.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
         return;
     }
     
-    empty.classList.add('hidden');
+    if (empty) empty.classList.add('hidden');
     
-    grid.innerHTML = data.map(p => {
-        // Verificar disponibilidade dos itens do kit
-        let kitHTML = p.kits.map(kit => {
-            let itensHTML = kit.itens.map(cod => {
-                const item = window.DATA.estoque.find(i => i.cod1 === cod);
-                const statusClass = item ? (item.qtd > 0 ? 'color:#10b981' : 'color:#ef4444') : 'color:#f59e0b';
-                const statusIcon = item ? (item.qtd > 0 ? 'check_circle' : 'cancel') : 'warning';
-                return `<div style="display:flex;align-items:center;gap:4px;font-size:11px;${statusClass}">
-                    <i class="material-icons-round" style="font-size:14px;">${statusIcon}</i>
-                    ${cod} ${item ? `(${item.qtd} un)` : '(nao encontrado)'}
+    if (grid) {
+        grid.innerHTML = data.map(p => {
+            let kitHTML = p.kits.map(kit => {
+                let itensHTML = kit.itens.map(cod => {
+                    const item = window.DATA.estoque.find(i => i.cod1 === cod);
+                    const statusClass = item ? (item.qtd > 0 ? 'color:#10b981' : 'color:#ef4444') : 'color:#f59e0b';
+                    const statusIcon = item ? (item.qtd > 0 ? 'check_circle' : 'cancel') : 'warning';
+                    return `<div style="display:flex;align-items:center;gap:4px;font-size:11px;${statusClass}">
+                        <i class="material-icons-round" style="font-size:14px;">${statusIcon}</i>
+                        ${cod} ${item ? `(${item.qtd} un)` : '(nao encontrado)'}
+                    </div>`;
+                }).join('');
+                return `<div class="preventiva-kit">
+                    <strong style="font-size:12px;">${kit.desc}</strong>
+                    ${itensHTML}
                 </div>`;
             }).join('');
-            return `<div class="preventiva-kit">
-                <strong style="font-size:12px;">${kit.desc}</strong>
-                ${itensHTML}
+            
+            return `<div class="preventiva-card">
+                <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;">
+                    <h3 style="color:var(--preventiva);">${p.id}</h3>
+                    <span class="loc-tag" style="background:#ede9fe;color:var(--preventiva);">${p.maquina}</span>
+                </div>
+                <p style="font-weight:600;margin:8px 0;">${p.descricao}</p>
+                <div class="preventiva-info">
+                    <div><small style="color:var(--text-light);">Periodicidade:</small><br><strong>${p.periodicidade}</strong></div>
+                    <div><small style="color:var(--text-light);">Duracao:</small><br><strong>${p.duracao}</strong></div>
+                    <div><small style="color:var(--text-light);">Responsavel:</small><br><strong>${p.responsavel}</strong></div>
+                </div>
+                <div style="margin:12px 0;">
+                    <strong style="font-size:13px;">Kits e Pecas:</strong>
+                    ${kitHTML}
+                </div>
+                <div style="margin:12px 0;">
+                    <strong style="font-size:13px;">Procedimentos:</strong>
+                    <ol style="margin:8px 0 0 16px;font-size:12px;color:var(--text);">
+                        ${p.procedimentos.map(proc => `<li>${proc}</li>`).join('')}
+                    </ol>
+                </div>
+                ${p.observacoes ? `<div style="background:#fffbeb;padding:8px 12px;border-radius:8px;font-size:11px;color:#b45309;"><strong>Obs:</strong> ${p.observacoes}</div>` : ''}
+                <button class="btn-login" style="background:var(--preventiva);margin-top:12px;" onclick="sharePreventiva('${p.id}')">
+                    <i class="material-icons-round">share</i> Compartilhar Preventiva
+                </button>
             </div>`;
         }).join('');
-        
-        return `<div class="preventiva-card">
-            <div style="display:flex;justify-content:space-between;align-items:start;">
-                <h3>${p.id}</h3>
-                <span class="loc-tag" style="background:#ede9fe;color:var(--preventiva);">${p.maquina}</span>
-            </div>
-            <p style="font-weight:600;margin:8px 0;">${p.descricao}</p>
-            <div class="preventiva-info">
-                <div><small style="color:var(--text-light);">Periodicidade:</small><br><strong>${p.periodicidade}</strong></div>
-                <div><small style="color:var(--text-light);">Duracao:</small><br><strong>${p.duracao}</strong></div>
-                <div><small style="color:var(--text-light);">Responsavel:</small><br><strong>${p.responsavel}</strong></div>
-            </div>
-            <div style="margin:12px 0;">
-                <strong style="font-size:13px;">Kits e Pecas:</strong>
-                ${kitHTML}
-            </div>
-            <div style="margin:12px 0;">
-                <strong style="font-size:13px;">Procedimentos:</strong>
-                <ol style="margin:8px 0 0 16px;font-size:12px;">
-                    ${p.procedimentos.map(proc => `<li>${proc}</li>`).join('')}
-                </ol>
-            </div>
-            ${p.observacoes ? `<div style="background:#fffbeb;padding:8px 12px;border-radius:8px;font-size:11px;color:#b45309;"><strong>Obs:</strong> ${p.observacoes}</div>` : ''}
-            <button class="btn-login" style="background:var(--preventiva);margin-top:12px;" onclick="sharePreventiva('${p.id}')">
-                <i class="material-icons-round">share</i> Compartilhar Preventiva
-            </button>
-        </div>`;
-    }).join('');
+    }
 }
 
 function sharePreventiva(id) {
@@ -333,13 +382,24 @@ function sharePreventiva(id) {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
+// ======================= STATS E CONTADORES =======================
 function updateStats() {
+    const statsBar = document.getElementById('statsBar');
+    if (!statsBar) return;
+    
+    if (currentFilterType === "PREVENTIVAS") {
+        const totalPrev = (window.PREVENTIVAS || []).length;
+        statsBar.innerHTML = `<div class="stat-item">Preventivas: ${totalPrev} planos</div>`;
+        return;
+    }
+    
     const total = window.DATA.estoque.length;
     const outStock = window.DATA.estoque.filter(i => i.qtd <= 0 || i.status === "PENDENTE").length;
     const lowStock = window.DATA.estoque.filter(i => i.qtd > 0 && i.estoqueMin && i.qtd <= i.estoqueMin && i.status !== "PENDENTE").length;
-    document.getElementById('statsBar').innerHTML = `
+    
+    statsBar.innerHTML = `
         <div class="stat-item">Total: ${total} itens</div>
-        ${lowStock > 0 ? `<div class="stat-item warning">Baixo: ${lowStock}</div>` : ''}
+        ${lowStock > 0 ? `<div class="stat-item warning">Baixo estoque: ${lowStock}</div>` : ''}
         ${outStock > 0 ? `<div class="stat-item danger">Zerados: ${outStock}</div>` : ''}
         ${searchTerm ? `<div class="stat-item">Resultados: ${filteredData.length}</div>` : ''}
     `;
@@ -348,50 +408,99 @@ function updateStats() {
 function updatePendentesCount() {
     const count = window.DATA.estoque.filter(i => i.status === "PENDENTE" || i.qtd <= 0).length;
     const badge = document.getElementById('pendentesCount');
-    if (count > 0) {
-        badge.textContent = count;
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 }
 
 function updatePreventivasCount() {
     const count = (window.PREVENTIVAS || []).length;
     const badge = document.getElementById('preventivasCount');
-    if (count > 0) {
-        badge.textContent = count;
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 }
 
 function updatePagination() {
     const pag = document.getElementById('pagination');
+    if (!pag) return;
+    
     if (totalPages <= 1) {
         pag.classList.add('hidden');
         return;
     }
     pag.classList.remove('hidden');
-    document.getElementById('pageInfo').textContent = `${currentPage} de ${totalPages}`;
-    document.querySelectorAll('.btn-page')[0].disabled = currentPage === 1;
-    document.querySelectorAll('.btn-page')[1].disabled = currentPage === totalPages;
+    
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) pageInfo.textContent = `${currentPage} de ${totalPages}`;
+    
+    const buttons = pag.querySelectorAll('.btn-page');
+    if (buttons[0]) buttons[0].disabled = currentPage === 1;
+    if (buttons[1]) buttons[1].disabled = currentPage === totalPages;
 }
 
-function prevPage() { if (currentPage > 1) { currentPage--; renderProducts(); updatePagination(); window.scrollTo({ top: 300, behavior: 'smooth' }); } }
-function nextPage() { if (currentPage < totalPages) { currentPage++; renderProducts(); updatePagination(); window.scrollTo({ top: 300, behavior: 'smooth' }); } }
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderProducts();
+        updatePagination();
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+    }
+}
+
+function nextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderProducts();
+        updatePagination();
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+    }
+}
 
 // ======================= SCANNER CÓDIGO DE BARRAS =======================
 function startScanner(mode = "consulta") {
     scannerMode = mode;
+    lastScannedCode = "";
+    scanCooldown = false;
+    
     document.getElementById('scannerModal').classList.add('active');
+    document.getElementById('qr-reader-results').innerHTML = `
+        <div style="text-align:center;padding:20px;">
+            <i class="material-icons-round" style="font-size:40px;color:var(--primary-dark);animation:pulse 1.5s infinite;">qr_code_scanner</i>
+            <p style="margin-top:12px;color:var(--text-light);">Aponte a camera para o codigo de barras</p>
+            <p style="font-size:11px;color:var(--text-light);">EAN-13, EAN-8, Code 128, Code 39, QR Code, UPC</p>
+        </div>`;
     
     if (!html5QrCode) {
         html5QrCode = new Html5Qrcode("qr-reader");
     }
     
-    const config = { fps: 10, qrbox: 250, aspectRatio: 1.0 };
+    const config = {
+        fps: 10,
+        qrbox: { width: 280, height: 200 },
+        aspectRatio: 1.0,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR
+        ]
+    };
     
     html5QrCode.start(
         { facingMode: "environment" },
@@ -400,10 +509,18 @@ function startScanner(mode = "consulta") {
         onScanError
     ).then(() => {
         scannerActive = true;
-        document.getElementById('qr-reader-results').innerHTML = '<p style="color:var(--text-light);">Aponte para o codigo de barras...</p>';
     }).catch(err => {
-        console.error("Erro scanner:", err);
-        document.getElementById('qr-reader-results').innerHTML = '<p style="color:var(--danger);">Erro ao iniciar camera. Verifique permissoes.</p>';
+        let errorMsg = "Erro ao iniciar camera.";
+        if (err.toString().includes("NotAllowedError")) {
+            errorMsg = "Permissao de camera negada. Permita o acesso nas configuracoes.";
+        } else if (err.toString().includes("NotFoundError")) {
+            errorMsg = "Camera nao encontrada. Use um celular com camera.";
+        }
+        document.getElementById('qr-reader-results').innerHTML = `
+            <div style="background:#fee2e2;padding:16px;border-radius:16px;text-align:center;">
+                <i class="material-icons-round" style="font-size:40px;color:#ef4444;">error</i>
+                <p style="color:#991b1b;margin-top:8px;">${errorMsg}</p>
+            </div>`;
     });
 }
 
@@ -411,71 +528,219 @@ function startScannerForSaida() {
     startScanner("saida");
 }
 
-function onScanSuccess(decodedText) {
-    if (!scannerActive) return;
+function onScanSuccess(decodedText, decodedResult) {
+    if (!scannerActive || scanCooldown) return;
     
-    const ean = decodedText.trim();
+    const scannedCode = decodedText.trim();
     
-    // Procurar produto pelo EAN
-    const item = window.DATA.estoque.find(i => i.ean === ean);
+    if (scannedCode === lastScannedCode) return;
+    lastScannedCode = scannedCode;
+    scanCooldown = true;
+    setTimeout(() => { scanCooldown = false; }, 2000);
+    
+    playBeep();
+    
+    let item = findItemByAnyCode(scannedCode);
     
     if (scannerMode === "saida") {
-        document.getElementById('saidaCodigo').value = item ? item.cod1 : ean;
+        document.getElementById('saidaCodigo').value = item ? item.cod1 : scannedCode;
         buscarItemSaida();
+        stopScanner();
+        return;
     }
     
+    showScanResult(item, scannedCode);
+}
+
+function findItemByAnyCode(code) {
+    // 1. Busca exata por EAN
+    let item = window.DATA.estoque.find(i => i.ean === code);
+    if (item) return item;
+    
+    // 2. Busca exata por cod1 (case insensitive)
+    item = window.DATA.estoque.find(i => i.cod1.toLowerCase() === code.toLowerCase());
+    if (item) return item;
+    
+    // 3. Busca exata por cod2
+    item = window.DATA.estoque.find(i => i.cod2 === code);
+    if (item) return item;
+    
+    // 4. Busca normalizada (sem espaços, traços, pontos, barras)
+    const normalizedCode = code.replace(/[\s\-\.\/]/g, '').toLowerCase();
+    item = window.DATA.estoque.find(i => {
+        const normalizedCod1 = i.cod1.replace(/[\s\-\.\/]/g, '').toLowerCase();
+        return normalizedCod1 === normalizedCode;
+    });
+    if (item) return item;
+    
+    // 5. Busca por EAN parcial (últimos dígitos)
+    if (code.length >= 8) {
+        const partialEAN = code.slice(-8);
+        item = window.DATA.estoque.find(i => i.ean && i.ean.endsWith(partialEAN));
+        if (item) return item;
+    }
+    
+    // 6. Busca por CONTER o código
+    item = window.DATA.estoque.find(i => 
+        (i.ean && i.ean.includes(code)) ||
+        i.cod1.toLowerCase().includes(code.toLowerCase()) ||
+        (i.cod2 && i.cod2.includes(code))
+    );
+    if (item) return item;
+    
+    return null;
+}
+
+function showScanResult(item, scannedCode) {
     let resultHTML = '';
+    
     if (item) {
+        const statusColor = item.qtd > 0 ? '#10b981' : '#ef4444';
+        const statusIcon = item.qtd > 0 ? 'check_circle' : 'error';
+        const stockBadge = item.qtd <= (item.estoqueMin || 5) && item.qtd > 0 ? 'ESTOQUE BAIXO' : (item.qtd > 0 ? 'DISPONIVEL' : 'ESGOTADO');
+        
         resultHTML = `
-            <div class="scanner-result-found">
-                <i class="material-icons-round" style="font-size:40px;color:#10b981;">check_circle</i>
-                <h4 style="margin:8px 0;">PRODUTO ENCONTRADO</h4>
-                <p><strong>${item.cod1}</strong></p>
-                <p>${item.desc}</p>
-                <p>Local: ${item.local} | Estoque: ${item.qtd} un</p>
-                <p>Maquina: ${item.maquina || 'Geral'}</p>
-                <p style="font-size:11px;color:var(--text-light);">EAN: ${ean}</p>
-                <button class="btn-login" style="margin-top:8px;background:#10b981;" onclick="stopScanner();openItem('${item.cod1.replace(/'/g, "\\'")}')">
-                    <i class="material-icons-round">visibility</i> Ver Detalhes
-                </button>
+            <div style="background:#d1fae5;padding:20px;border-radius:20px;text-align:center;animation:scaleIn 0.3s ease;">
+                <div style="background:white;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                    <i class="material-icons-round" style="font-size:36px;color:${statusColor};">${statusIcon}</i>
+                </div>
+                <h3 style="color:#065f46;margin-bottom:4px;">PRODUTO ENCONTRADO</h3>
+                <p style="font-size:12px;color:#065f46;margin-bottom:12px;">Codigo: <strong>${scannedCode}</strong></p>
+                <div style="background:white;border-radius:16px;padding:16px;text-align:left;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Codigo:</span><strong>${item.cod1}</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Cod Aux:</span><strong>${item.cod2||'-'}</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Descricao:</span><strong>${item.desc}</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Maquina:</span><strong>${item.maquina||'Geral'}</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Local:</span><strong style="color:var(--accent);">${item.local||'N/I'}</strong></div>
+                    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #e5e7eb;"><span style="color:var(--text-light);">ESTOQUE:</span><strong style="font-size:20px;color:${statusColor};">${item.qtd} un</strong></div>
+                    <div style="text-align:center;margin-top:12px;"><span style="background:${statusColor};color:white;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:800;">${stockBadge}</span></div>
+                    ${item.status==='PENDENTE'?'<div style="text-align:center;margin-top:8px;"><span style="background:#6366f1;color:white;padding:4px 12px;border-radius:20px;font-size:11px;">PENDENTE</span></div>':''}
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn-login" style="background:var(--primary-dark);flex:1;" onclick="stopScanner();openItem('${item.cod1.replace(/'/g,"\\'")}')">
+                        <i class="material-icons-round">visibility</i> Detalhes
+                    </button>
+                    <button class="btn-login" style="background:#25d366;flex:1;" onclick="stopScanner();shareItemWhatsApp('${item.cod1.replace(/'/g,"\\'")}')">
+                        <i class="material-icons-round">share</i> WhatsApp
+                    </button>
+                </div>
             </div>`;
     } else {
         resultHTML = `
-            <div class="scanner-result-notfound">
-                <i class="material-icons-round" style="font-size:40px;color:#ef4444;">cancel</i>
-                <h4 style="margin:8px 0;">CODIGO NAO CADASTRADO</h4>
-                <p style="font-size:14px;"><strong>${ean}</strong></p>
-                <p>Este codigo de barras nao foi encontrado no sistema.</p>
-                <p style="font-size:11px;">Verifique se o produto ja foi cadastrado ou entre em contato com o administrador.</p>
+            <div style="background:#fee2e2;padding:20px;border-radius:20px;text-align:center;animation:scaleIn 0.3s ease;">
+                <div style="background:white;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                    <i class="material-icons-round" style="font-size:36px;color:#ef4444;">cancel</i>
+                </div>
+                <h3 style="color:#991b1b;margin-bottom:8px;">CODIGO NAO CADASTRADO</h3>
+                <div style="background:white;border-radius:16px;padding:16px;">
+                    <p style="color:var(--text-light);">Codigo escaneado:</p>
+                    <p style="font-size:22px;font-weight:800;color:var(--primary-dark);">${scannedCode}</p>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn-login" style="background:var(--primary-dark);flex:1;" onclick="stopScanner();openNFModal()">
+                        <i class="material-icons-round">receipt_long</i> Cadastrar NF
+                    </button>
+                    <button class="btn-login" style="background:#ef4444;flex:1;" onclick="stopScanner();document.getElementById('mainSearch').value='${scannedCode}';filterItems();">
+                        <i class="material-icons-round">search</i> Buscar
+                    </button>
+                </div>
             </div>`;
     }
     
     document.getElementById('qr-reader-results').innerHTML = resultHTML;
     
-    // Parar scanner apos 2 segundos se encontrou
     if (item) {
-        setTimeout(() => stopScanner(), 2000);
+        setTimeout(() => stopScanner(), 3000);
     }
 }
 
+function shareItemWhatsApp(cod1) {
+    const item = window.DATA.estoque.find(i => i.cod1 === cod1);
+    if (!item) return;
+    const text = `*RDS.CONSULTA*%0A%0A*Codigo:* ${item.cod1}%0A*Descricao:* ${item.desc}%0A*Local:* ${item.local||'N/I'}%0A*Estoque:* ${item.qtd} un%0A*Maquina:* ${item.maquina||'Geral'}%0A%0A_Escaneado via RDS.CONSULTA_`;
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+}
+
 function onScanError(err) {
-    // Erros normais de leitura, ignorar
+    // Ignorar erros normais de leitura
 }
 
 function stopScanner() {
     scannerActive = false;
+    lastScannedCode = "";
+    scanCooldown = false;
     document.getElementById('scannerModal').classList.remove('active');
     if (html5QrCode) {
-        html5QrCode.stop().catch(() => {});
+        html5QrCode.stop().then(() => {}).catch(() => {});
     }
     document.getElementById('qr-reader-results').innerHTML = '';
+}
+
+function playBeep() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.value = 0.1;
+        oscillator.start();
+        setTimeout(() => { oscillator.stop(); audioContext.close(); }, 150);
+    } catch (e) {}
+}
+
+// ======================= MODAL DETALHES =======================
+function openItem(cod) {
+    const item = window.DATA.estoque.find(i => i.cod1 === cod);
+    if (!item) return;
+    currentModalItem = item;
+    
+    const status = getStockStatus(item);
+    const statusText = status === 'out' ? 'ESGOTADO' : status === 'low' ? 'ESTOQUE BAIXO' : 'Disponivel';
+    const statusColor = status === 'out' ? 'var(--danger)' : status === 'low' ? 'var(--warning)' : 'var(--success)';
+    
+    document.getElementById('modalTitle').textContent = item.cod1;
+    document.getElementById('modalData').innerHTML = `
+        <div style="text-align:center">
+            <img src="${item.imgUrl||'https://placehold.co/300x300/f0f4f9/94a3b8?text='+item.cod1}" 
+                 style="width:140px;height:140px;border-radius:24px;object-fit:cover;margin-bottom:14px;background:#f0f4f9;"
+                 onerror="this.src='https://placehold.co/300x300/f0f4f9/94a3b8?text=Imagem'">
+            <p style="font-weight:700;font-size:16px;">${item.desc}</p>
+            ${item.ean ? `<p style="font-size:11px;color:var(--text-light);">EAN: ${item.ean}</p>` : ''}
+            <div style="background:#f8fafc;border-radius:20px;padding:16px;margin:16px 0;text-align:left;display:grid;gap:8px;">
+                <div style="display:flex;justify-content:space-between;"><span>Codigo aux:</span><strong>${item.cod2||'-'}</strong></div>
+                <div style="display:flex;justify-content:space-between;"><span>Maquina:</span><strong>${item.maquina||'Geral'}</strong></div>
+                <div style="display:flex;justify-content:space-between;"><span>Local:</span><strong>${item.local||'N/I'}</strong></div>
+                <div style="display:flex;justify-content:space-between;"><span>Estoque:</span><strong>${item.qtd} un</strong></div>
+                <div style="display:flex;justify-content:space-between;"><span>Minimo:</span><strong>${item.estoqueMin||'-'}</strong></div>
+                <div style="display:flex;justify-content:space-between;"><span>Tipo:</span><strong>${item.tipo||'-'}</strong></div>
+                <div style="text-align:center;margin-top:6px;font-weight:700;color:${statusColor};">${statusText}</div>
+            </div>
+        </div>`;
+    
+    document.getElementById('itemModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('itemModal').classList.remove('active');
+    currentModalItem = null;
+}
+
+function shareViaWhatsApp() {
+    if (!currentModalItem) return;
+    const item = currentModalItem;
+    const text = `*RDS.CONSULTA*%0A%0A*Codigo:* ${item.cod1}%0A*Descricao:* ${item.desc}%0A*Maquina:* ${item.maquina||'Geral'}%0A*Local:* ${item.local||'N/I'}%0A*Estoque:* ${item.qtd} un%0A%0A_Consultado via RDS.CONSULTA_`;
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
 // ======================= SAÍDA DE MATERIAL =======================
 function buscarItemSaida() {
     const codigo = document.getElementById('saidaCodigo').value.trim();
+    const infoDiv = document.getElementById('saidaItemInfo');
     if (!codigo) {
-        document.getElementById('saidaItemInfo').innerHTML = '';
+        infoDiv.innerHTML = '';
         return;
     }
     
@@ -486,15 +751,15 @@ function buscarItemSaida() {
     );
     
     if (item) {
-        document.getElementById('saidaItemInfo').innerHTML = `
+        infoDiv.innerHTML = `
             <div style="background:#d1fae5;padding:8px 12px;border-radius:12px;">
                 <strong>${item.desc}</strong><br>
-                <small>Estoque atual: ${item.qtd} un | Local: ${item.local}</small>
+                <small>Estoque: ${item.qtd} un | Local: ${item.local}</small>
             </div>`;
     } else {
-        document.getElementById('saidaItemInfo').innerHTML = `
+        infoDiv.innerHTML = `
             <div style="background:#fee2e2;padding:8px 12px;border-radius:12px;">
-                <strong>Item nao encontrado no estoque</strong>
+                <strong>Item nao encontrado</strong>
             </div>`;
     }
 }
@@ -535,10 +800,8 @@ function submitSaida(e) {
         return;
     }
     
-    // Atualizar estoque
     item.qtd -= quantidade;
     
-    // Registrar no historico
     window.DATA.historicoMov.unshift({
         data: new Date().toLocaleString('pt-BR'),
         tipo: "SAIDA",
@@ -550,7 +813,6 @@ function submitSaida(e) {
         obs: obs
     });
     
-    // Enviar WhatsApp
     const message = `*SAIDA DE MATERIAL*%0A%0A*Codigo:* ${item.cod1}%0A*Material:* ${item.desc}%0A*Quantidade:* ${quantidade} un%0A*Local:* ${item.local}%0A*Responsavel:* ${responsavel}%0A${os ? '*OS:* ' + os + '%0A' : ''}*Estoque restante:* ${item.qtd} un%0A%0A_RDS.CONSULTA_`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
     
@@ -559,52 +821,19 @@ function submitSaida(e) {
     alert(`Saida registrada! Estoque atualizado: ${item.qtd} unidades restantes.`);
 }
 
-// ======================= MODAL DETALHES =======================
-function openItem(cod) {
-    const item = window.DATA.estoque.find(i => i.cod1 === cod);
-    if (!item) return;
-    currentModalItem = item;
-    
-    const status = getStockStatus(item);
-    const statusText = status === 'out' ? 'ESGOTADO' : status === 'low' ? 'ESTOQUE BAIXO' : 'Disponivel';
-    const statusColor = status === 'out' ? 'var(--danger)' : status === 'low' ? 'var(--warning)' : 'var(--success)';
-    
-    document.getElementById('modalTitle').textContent = item.cod1;
-    document.getElementById('modalData').innerHTML = `
-        <div style="text-align:center">
-            <img src="${item.imgUrl||'https://placehold.co/300x300/f0f4f9/94a3b8?text='+item.cod1}" 
-                 style="width:140px;height:140px;border-radius:24px;object-fit:cover;margin-bottom:14px;background:#f0f4f9;"
-                 onerror="this.src='https://placehold.co/300x300/f0f4f9/94a3b8?text=Imagem'">
-            <p style="font-weight:700;font-size:16px;">${item.desc}</p>
-            ${item.ean ? `<p style="font-size:11px;color:var(--text-light);">EAN: ${item.ean}</p>` : ''}
-            <div style="background:#f8fafc;border-radius:20px;padding:16px;margin:16px 0;text-align:left;display:grid;gap:8px;">
-                <div style="display:flex;justify-content:space-between;"><span>Codigo aux:</span><strong>${item.cod2||'-'}</strong></div>
-                <div style="display:flex;justify-content:space-between;"><span>Maquina:</span><strong>${item.maquina||'Geral'}</strong></div>
-                <div style="display:flex;justify-content:space-between;"><span>Local:</span><strong>${item.local||'N/I'}</strong></div>
-                <div style="display:flex;justify-content:space-between;"><span>Estoque:</span><strong>${item.qtd} un</strong></div>
-                <div style="display:flex;justify-content:space-between;"><span>Minimo:</span><strong>${item.estoqueMin||'-'}</strong></div>
-                <div style="text-align:center;margin-top:6px;font-weight:700;color:${statusColor};">${statusText}</div>
-            </div>
-        </div>`;
-    
-    document.getElementById('itemModal').classList.add('active');
-}
-
-function closeModal() { document.getElementById('itemModal').classList.remove('active'); currentModalItem = null; }
-
-function shareViaWhatsApp() {
-    if (!currentModalItem) return;
-    const item = currentModalItem;
-    const text = `*RDS.CONSULTA*%0A%0A*Codigo:* ${item.cod1}%0A*Descricao:* ${item.desc}%0A*Maquina:* ${item.maquina||'Geral'}%0A*Local:* ${item.local||'N/I'}%0A*Estoque:* ${item.qtd} un%0A%0A_Consultado via RDS.CONSULTA_`;
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
-}
-
 // ======================= NOTA FISCAL =======================
-function openNFModal() { document.getElementById('nfModal').classList.add('active'); }
-function closeNFModal() { document.getElementById('nfModal').classList.remove('active'); document.getElementById('nfForm').reset(); }
+function openNFModal() {
+    document.getElementById('nfModal').classList.add('active');
+}
+
+function closeNFModal() {
+    document.getElementById('nfModal').classList.remove('active');
+    document.getElementById('nfForm').reset();
+}
 
 function submitNF(e) {
     e.preventDefault();
+    
     const nf = {
         numero: document.getElementById('nfNumero').value,
         fornecedor: document.getElementById('nfFornecedor').value,
@@ -634,8 +863,13 @@ function submitNF(e) {
 }
 
 // ======================= EXPORTAÇÃO =======================
-function showExportMenu() { document.getElementById('exportModal').classList.add('active'); }
-function closeExportModal() { document.getElementById('exportModal').classList.remove('active'); }
+function showExportMenu() {
+    document.getElementById('exportModal').classList.add('active');
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.remove('active');
+}
 
 function exportToExcel() {
     const data = window.DATA.estoque.map(item => ({
@@ -718,22 +952,22 @@ function handleLogin() {
             initApp();
         }, 350);
     } else {
-        alert('Acesso negado!');
+        alert('Acesso negado! Verifique usuario e senha.');
     }
 }
 
 function handleLogout() {
-    if (confirm('Deseja sair?')) {
+    if (confirm('Deseja sair do sistema?')) {
+        stopScanner();
         document.getElementById('app').classList.add('hidden');
         document.getElementById('login-screen').style.opacity = '1';
         document.getElementById('login-screen').classList.remove('hidden');
         document.getElementById('user').value = '';
         document.getElementById('pass').value = '';
-        stopScanner();
     }
 }
 
-// ======================= GLOBAL =======================
+// ======================= EXPORTAÇÃO GLOBAL =======================
 window.openItem = openItem;
 window.closeModal = closeModal;
 window.openNFModal = openNFModal;
@@ -744,6 +978,7 @@ window.closeSaidaModal = closeSaidaModal;
 window.submitSaida = submitSaida;
 window.buscarItemSaida = buscarItemSaida;
 window.shareViaWhatsApp = shareViaWhatsApp;
+window.shareItemWhatsApp = shareItemWhatsApp;
 window.sharePreventiva = sharePreventiva;
 window.showExportMenu = showExportMenu;
 window.closeExportModal = closeExportModal;
