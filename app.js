@@ -25,6 +25,10 @@ let scannerMode = "consulta";
 let lastScannedCode = "";
 let scanCooldown = false;
 
+// QR Code & Etiquetas
+let selectedItems = new Set();
+let qrCodeGenerator = null;
+
 // ======================= INICIALIZAÇÃO =======================
 function initApp() {
     if (!window.DATA || !window.DATA.estoque) {
@@ -45,20 +49,26 @@ function initApp() {
     const maquinasList = Array.from(maquinasSet).sort();
     
     const select = document.getElementById('machineSelect');
-    select.innerHTML = '<option value="Todas">Todas</option>';
-    maquinasList.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        select.appendChild(opt);
-    });
+    if (select) {
+        select.innerHTML = '<option value="Todas">Todas</option>';
+        maquinasList.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            select.appendChild(opt);
+        });
+    }
     
     // Event listeners
-    document.getElementById('mainSearch').addEventListener('input', onSearchInput);
+    const searchInput = document.getElementById('mainSearch');
+    if (searchInput) searchInput.addEventListener('input', onSearchInput);
+    
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', onTabClick);
     });
-    document.getElementById('pass').addEventListener('keypress', (e) => {
+    
+    const passInput = document.getElementById('pass');
+    if (passInput) passInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
     });
     
@@ -72,6 +82,7 @@ function initApp() {
     
     updatePendentesCount();
     updatePreventivasCount();
+    updatePreventivasStatus();
     filterItems();
 }
 
@@ -93,39 +104,38 @@ function updateThemeIcon(theme) {
 
 // ======================= ATALHOS DE TECLADO =======================
 function handleKeyboard(e) {
-    // Ctrl+K = Busca
     if (e.ctrlKey && e.key === 'k') {
         e.preventDefault();
         document.getElementById('mainSearch').focus();
     }
-    // Ctrl+N = Nova NF
     if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         openNFModal();
     }
-    // Ctrl+P = Pendentes
     if (e.ctrlKey && e.key === 'p') {
         e.preventDefault();
         const pendentesTab = document.querySelector('[data-filter="PENDENTES"]');
         if (pendentesTab) pendentesTab.click();
     }
-    // Ctrl+S = Saida
     if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         openSaidaModal();
     }
-    // Ctrl+V = Preventivas
     if (e.ctrlKey && e.key === 'v') {
         e.preventDefault();
         const prevTab = document.querySelector('[data-filter="PREVENTIVAS"]');
         if (prevTab) prevTab.click();
     }
-    // ESC = Fechar modais
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        openEtiquetasModal();
+    }
     if (e.key === 'Escape') {
         closeModal();
         closeNFModal();
         closeSaidaModal();
         closeExportModal();
+        closeEtiquetasModal();
         stopScanner();
     }
 }
@@ -170,6 +180,46 @@ function getStockStatus(item) {
     return "ok";
 }
 
+// ======================= PREVENTIVAS STATUS =======================
+function updatePreventivasStatus() {
+    if (!window.PREVENTIVAS) return;
+    
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    window.PREVENTIVAS.forEach(p => {
+        if (!p.proximaExecucao) {
+            p.status = 'ok';
+            return;
+        }
+        
+        const dataPrev = new Date(p.proximaExecucao + 'T00:00:00');
+        const diffDias = Math.ceil((dataPrev - hoje) / (1000 * 60 * 60 * 24));
+        
+        if (diffDias < 0) {
+            p.status = 'vencida';
+        } else if (diffDias <= 7) {
+            p.status = 'proxima';
+        } else {
+            p.status = 'ok';
+        }
+    });
+    
+    updatePreventivasCount();
+}
+
+function getPreventivasStatusCount() {
+    if (!window.PREVENTIVAS) return { vencidas: 0, proximas: 0, ok: 0 };
+    
+    let vencidas = 0, proximas = 0;
+    window.PREVENTIVAS.forEach(p => {
+        if (p.status === 'vencida') vencidas++;
+        else if (p.status === 'proxima') proximas++;
+    });
+    
+    return { vencidas, proximas };
+}
+
 // ======================= FILTRAGEM =======================
 function filterItems() {
     const preventivasGrid = document.getElementById('preventivasGrid');
@@ -183,6 +233,7 @@ function filterItems() {
         if (preventivasGrid) preventivasGrid.classList.remove('hidden');
         if (pagination) pagination.classList.add('hidden');
         if (empty) empty.classList.add('hidden');
+        updatePreventivasStatus();
         renderPreventivas();
         updateStats();
         return;
@@ -194,14 +245,12 @@ function filterItems() {
     
     let data = [...window.DATA.estoque];
     
-    // Filtro por tipo
     if (currentFilterType === "PENDENTES") {
         data = data.filter(i => i.status === "PENDENTE" || i.qtd <= 0);
     } else if (currentFilterType !== "Todos") {
         data = data.filter(i => i.tipo === currentFilterType);
     }
     
-    // Busca textual
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         data = data.filter(i =>
@@ -214,12 +263,10 @@ function filterItems() {
         );
     }
     
-    // Filtro por maquina
     if (currentMachineFilter !== "Todas") {
         data = data.filter(i => i.maquina === currentMachineFilter);
     }
     
-    // Ordenacao: zerados > baixo estoque > normais (alfabetico)
     data.sort((a, b) => {
         const order = { "out": 0, "low": 1, "ok": 2 };
         const sa = order[getStockStatus(a)];
@@ -236,7 +283,6 @@ function filterItems() {
     updateStats();
     updatePagination();
     updatePendentesCount();
-    updatePreventivasCount();
 }
 
 // ======================= RENDERIZAÇÃO PRODUTOS =======================
@@ -273,11 +319,16 @@ function renderProducts() {
             
             const safeCode = item.cod1.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const imgSrc = item.imgUrl || `https://placehold.co/400x400/f0f4f9/94a3b8?text=${encodeURIComponent(item.cod1.substring(0,6))}`;
+            const isSelected = selectedItems.has(item.cod1);
             
             return `<div class="card ${cardClass}" style="animation-delay:${idx*0.02}s" onclick="openItem('${safeCode}')">
                 <div class="img-container">
                     <div class="badge-type">${item.tipo||'GERAL'}</div>
                     <div class="badge-qty ${badgeClass}">${item.qtd} un</div>
+                    <input type="checkbox" class="card-checkbox ${isSelected ? 'checked' : ''}" 
+                           ${isSelected ? 'checked' : ''} 
+                           onclick="event.stopPropagation(); toggleItemSelection('${safeCode}', this)" 
+                           title="Selecionar para etiqueta">
                     <img src="${imgSrc}" onerror="this.src='https://placehold.co/400x400/f0f4f9/94a3b8?text=Sem+imagem'" loading="lazy" alt="${item.desc}">
                 </div>
                 <div class="card-info">
@@ -319,6 +370,10 @@ function renderPreventivas() {
         data = data.filter(p => p.maquina === currentMachineFilter);
     }
     
+    // Ordenar: vencidas > próximas > ok
+    const statusOrder = { 'vencida': 0, 'proxima': 1, 'ok': 2 };
+    data.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+    
     if (!data.length) {
         if (grid) grid.innerHTML = '';
         if (empty) empty.classList.remove('hidden');
@@ -329,6 +384,37 @@ function renderPreventivas() {
     
     if (grid) {
         grid.innerHTML = data.map(p => {
+            // Status visual
+            let statusHTML = '';
+            let borderColor = 'var(--preventiva)';
+            if (p.status === 'vencida') {
+                statusHTML = '<span class="preventiva-status vencida"><i class="material-icons-round">error</i> VENCIDA</span>';
+                borderColor = '#ef4444';
+            } else if (p.status === 'proxima') {
+                statusHTML = '<span class="preventiva-status proxima"><i class="material-icons-round">warning</i> PRÓXIMA</span>';
+                borderColor = '#f59e0b';
+            } else {
+                statusHTML = '<span class="preventiva-status ok"><i class="material-icons-round">check_circle</i> EM DIA</span>';
+            }
+            
+            // Calcular dias
+            let diasHTML = '';
+            if (p.proximaExecucao) {
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                const dataPrev = new Date(p.proximaExecucao + 'T00:00:00');
+                const diffDias = Math.ceil((dataPrev - hoje) / (1000 * 60 * 60 * 24));
+                if (diffDias < 0) {
+                    diasHTML = `<small style="color:#ef4444;font-weight:700;">Atrasada há ${Math.abs(diffDias)} dias</small>`;
+                } else if (diffDias === 0) {
+                    diasHTML = '<small style="color:#f59e0b;font-weight:700;">Vence hoje!</small>';
+                } else if (diffDias <= 7) {
+                    diasHTML = `<small style="color:#f59e0b;font-weight:700;">Vence em ${diffDias} dias</small>`;
+                } else {
+                    diasHTML = `<small style="color:var(--text-light);">Vence em ${diffDias} dias</small>`;
+                }
+            }
+            
             let kitHTML = p.kits.map(kit => {
                 let itensHTML = kit.itens.map(cod => {
                     const item = window.DATA.estoque.find(i => i.cod1 === cod);
@@ -345,16 +431,21 @@ function renderPreventivas() {
                 </div>`;
             }).join('');
             
-            return `<div class="preventiva-card">
+            return `<div class="preventiva-card" style="border-left:4px solid ${borderColor};">
                 <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;">
-                    <h3 style="color:var(--preventiva);">${p.id}</h3>
+                    <div>
+                        <h3 style="color:${borderColor};">${p.id}</h3>
+                        ${statusHTML}
+                    </div>
                     <span class="loc-tag" style="background:#ede9fe;color:var(--preventiva);">${p.maquina}</span>
                 </div>
                 <p style="font-weight:600;margin:8px 0;">${p.descricao}</p>
+                ${diasHTML ? `<div style="margin-bottom:8px;">${diasHTML}</div>` : ''}
                 <div class="preventiva-info">
                     <div><small style="color:var(--text-light);">Periodicidade:</small><br><strong>${p.periodicidade}</strong></div>
                     <div><small style="color:var(--text-light);">Duracao:</small><br><strong>${p.duracao}</strong></div>
                     <div><small style="color:var(--text-light);">Responsavel:</small><br><strong>${p.responsavel}</strong></div>
+                    <div><small style="color:var(--text-light);">Última Execução:</small><br><strong>${p.ultimaExecucao ? new Date(p.ultimaExecucao+'T00:00:00').toLocaleDateString('pt-BR') : 'N/I'}</strong></div>
                 </div>
                 <div style="margin:12px 0;">
                     <strong style="font-size:13px;">Kits e Pecas:</strong>
@@ -367,12 +458,50 @@ function renderPreventivas() {
                     </ol>
                 </div>
                 ${p.observacoes ? `<div style="background:#fffbeb;padding:8px 12px;border-radius:8px;font-size:11px;color:#b45309;"><strong>Obs:</strong> ${p.observacoes}</div>` : ''}
-                <button class="btn-login" style="background:var(--preventiva);margin-top:12px;" onclick="sharePreventiva('${p.id}')">
-                    <i class="material-icons-round">share</i> Compartilhar Preventiva
-                </button>
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                    <button class="btn-login" style="background:${borderColor};flex:1;" onclick="sharePreventiva('${p.id}')">
+                        <i class="material-icons-round">share</i> Compartilhar
+                    </button>
+                    <button class="btn-icon" style="background:#10b981;color:white;border:none;" onclick="registrarExecucaoPreventiva('${p.id}')" title="Registrar execução">
+                        <i class="material-icons-round">check</i> Executar
+                    </button>
+                </div>
             </div>`;
         }).join('');
     }
+}
+
+function registrarExecucaoPreventiva(id) {
+    const p = window.PREVENTIVAS.find(p => p.id === id);
+    if (!p) return;
+    
+    const hoje = new Date().toISOString().split('T')[0];
+    p.ultimaExecucao = hoje;
+    
+    // Calcular próxima data baseado na periodicidade
+    const match = p.periodicidade.match(/(\d+)/);
+    if (match) {
+        const num = parseInt(match[0]);
+        const unidade = p.periodicidade.toLowerCase();
+        const data = new Date();
+        
+        if (unidade.includes('hora')) {
+            data.setHours(data.getHours() + num);
+        } else if (unidade.includes('dia')) {
+            data.setDate(data.getDate() + num);
+        } else if (unidade.includes('mes')) {
+            data.setMonth(data.getMonth() + num);
+        } else if (unidade.includes('km')) {
+            data.setMonth(data.getMonth() + 1);
+        }
+        
+        p.proximaExecucao = data.toISOString().split('T')[0];
+    }
+    
+    updatePreventivasStatus();
+    renderPreventivas();
+    updatePreventivasCount();
+    alert(`Preventiva ${id} executada com sucesso!\nPróxima: ${p.proximaExecucao ? new Date(p.proximaExecucao+'T00:00:00').toLocaleDateString('pt-BR') : 'N/I'}`);
 }
 
 function sharePreventiva(id) {
@@ -388,8 +517,13 @@ function updateStats() {
     if (!statsBar) return;
     
     if (currentFilterType === "PREVENTIVAS") {
+        const counts = getPreventivasStatusCount();
         const totalPrev = (window.PREVENTIVAS || []).length;
-        statsBar.innerHTML = `<div class="stat-item">Preventivas: ${totalPrev} planos</div>`;
+        statsBar.innerHTML = `
+            <div class="stat-item">Total: ${totalPrev} planos</div>
+            ${counts.vencidas > 0 ? `<div class="stat-item danger" style="animation:pulse 1.5s infinite;">Vencidas: ${counts.vencidas}</div>` : ''}
+            ${counts.proximas > 0 ? `<div class="stat-item warning">Próximas: ${counts.proximas}</div>` : ''}
+        `;
         return;
     }
     
@@ -400,8 +534,9 @@ function updateStats() {
     statsBar.innerHTML = `
         <div class="stat-item">Total: ${total} itens</div>
         ${lowStock > 0 ? `<div class="stat-item warning">Baixo estoque: ${lowStock}</div>` : ''}
-        ${outStock > 0 ? `<div class="stat-item danger">Zerados: ${outStock}</div>` : ''}
+        ${outStock > 0 ? `<div class="stat-item danger" style="animation:pulse 1.5s infinite;">Zerados: ${outStock}</div>` : ''}
         ${searchTerm ? `<div class="stat-item">Resultados: ${filteredData.length}</div>` : ''}
+        ${selectedItems.size > 0 ? `<div class="stat-item" style="color:var(--primary-dark);cursor:pointer;" onclick="openEtiquetasModal()">Selecionados: ${selectedItems.size} 📋</div>` : ''}
     `;
 }
 
@@ -419,12 +554,18 @@ function updatePendentesCount() {
 }
 
 function updatePreventivasCount() {
-    const count = (window.PREVENTIVAS || []).length;
+    const counts = getPreventivasStatusCount();
+    const total = counts.vencidas + counts.proximas;
     const badge = document.getElementById('preventivasCount');
     if (badge) {
-        if (count > 0) {
-            badge.textContent = count;
+        if (total > 0) {
+            badge.textContent = total;
             badge.classList.remove('hidden');
+            if (counts.vencidas > 0) {
+                badge.style.background = '#ef4444';
+            } else {
+                badge.style.background = '#f59e0b';
+            }
         } else {
             badge.classList.add('hidden');
         }
@@ -435,7 +576,7 @@ function updatePagination() {
     const pag = document.getElementById('pagination');
     if (!pag) return;
     
-    if (totalPages <= 1) {
+    if (totalPages <= 1 || currentFilterType === "PREVENTIVAS") {
         pag.classList.add('hidden');
         return;
     }
@@ -465,6 +606,36 @@ function nextPage() {
         updatePagination();
         window.scrollTo({ top: 300, behavior: 'smooth' });
     }
+}
+
+// ======================= SELEÇÃO DE ITENS PARA ETIQUETAS =======================
+function toggleItemSelection(cod, checkbox) {
+    if (checkbox.checked) {
+        selectedItems.add(cod);
+    } else {
+        selectedItems.delete(cod);
+    }
+    checkbox.classList.toggle('checked', checkbox.checked);
+    updateStats();
+    
+    // Mostrar/ocultar botão de etiquetas
+    const btnEtiquetas = document.getElementById('btnEtiquetas');
+    if (btnEtiquetas) {
+        btnEtiquetas.classList.toggle('hidden', selectedItems.size === 0);
+    }
+}
+
+function selectAllItems() {
+    const allItems = filteredData.length > 0 ? filteredData : window.DATA.estoque;
+    allItems.forEach(item => selectedItems.add(item.cod1));
+    renderProducts();
+    updateStats();
+}
+
+function deselectAllItems() {
+    selectedItems.clear();
+    renderProducts();
+    updateStats();
 }
 
 // ======================= SCANNER CÓDIGO DE BARRAS =======================
@@ -553,19 +724,15 @@ function onScanSuccess(decodedText, decodedResult) {
 }
 
 function findItemByAnyCode(code) {
-    // 1. Busca exata por EAN
     let item = window.DATA.estoque.find(i => i.ean === code);
     if (item) return item;
     
-    // 2. Busca exata por cod1 (case insensitive)
     item = window.DATA.estoque.find(i => i.cod1.toLowerCase() === code.toLowerCase());
     if (item) return item;
     
-    // 3. Busca exata por cod2
     item = window.DATA.estoque.find(i => i.cod2 === code);
     if (item) return item;
     
-    // 4. Busca normalizada (sem espaços, traços, pontos, barras)
     const normalizedCode = code.replace(/[\s\-\.\/]/g, '').toLowerCase();
     item = window.DATA.estoque.find(i => {
         const normalizedCod1 = i.cod1.replace(/[\s\-\.\/]/g, '').toLowerCase();
@@ -573,14 +740,12 @@ function findItemByAnyCode(code) {
     });
     if (item) return item;
     
-    // 5. Busca por EAN parcial (últimos dígitos)
     if (code.length >= 8) {
         const partialEAN = code.slice(-8);
         item = window.DATA.estoque.find(i => i.ean && i.ean.endsWith(partialEAN));
         if (item) return item;
     }
     
-    // 6. Busca por CONTER o código
     item = window.DATA.estoque.find(i => 
         (i.ean && i.ean.includes(code)) ||
         i.cod1.toLowerCase().includes(code.toLowerCase()) ||
@@ -606,6 +771,9 @@ function showScanResult(item, scannedCode) {
                 </div>
                 <h3 style="color:#065f46;margin-bottom:4px;">PRODUTO ENCONTRADO</h3>
                 <p style="font-size:12px;color:#065f46;margin-bottom:12px;">Codigo: <strong>${scannedCode}</strong></p>
+                <div class="qr-preview-container" style="margin:12px auto;">
+                    <div id="qr-scan-${item.cod1.replace(/[^a-zA-Z0-9]/g,'')}" class="qr-mini"></div>
+                </div>
                 <div style="background:white;border-radius:16px;padding:16px;text-align:left;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Codigo:</span><strong>${item.cod1}</strong></div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);">Cod Aux:</span><strong>${item.cod2||'-'}</strong></div>
@@ -625,6 +793,20 @@ function showScanResult(item, scannedCode) {
                     </button>
                 </div>
             </div>`;
+            
+        setTimeout(() => {
+            const qrDiv = document.querySelector(`[id^="qr-scan-"]`);
+            if (qrDiv && window.QRCode) {
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: JSON.stringify({ cod1: item.cod1, ean: item.ean }),
+                    width: 80,
+                    height: 80,
+                    colorDark: "#1e6f8f",
+                    colorLight: "#ffffff"
+                });
+            }
+        }, 100);
     } else {
         resultHTML = `
             <div style="background:#fee2e2;padding:20px;border-radius:20px;text-align:center;animation:scaleIn 0.3s ease;">
@@ -661,9 +843,7 @@ function shareItemWhatsApp(cod1) {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
-function onScanError(err) {
-    // Ignorar erros normais de leitura
-}
+function onScanError(err) {}
 
 function stopScanner() {
     scannerActive = false;
@@ -707,6 +887,7 @@ function openItem(cod) {
             <img src="${item.imgUrl||'https://placehold.co/300x300/f0f4f9/94a3b8?text='+item.cod1}" 
                  style="width:140px;height:140px;border-radius:24px;object-fit:cover;margin-bottom:14px;background:#f0f4f9;"
                  onerror="this.src='https://placehold.co/300x300/f0f4f9/94a3b8?text=Imagem'">
+            <div id="qr-detail" style="margin:16px auto;width:120px;height:120px;"></div>
             <p style="font-weight:700;font-size:16px;">${item.desc}</p>
             ${item.ean ? `<p style="font-size:11px;color:var(--text-light);">EAN: ${item.ean}</p>` : ''}
             <div style="background:#f8fafc;border-radius:20px;padding:16px;margin:16px 0;text-align:left;display:grid;gap:8px;">
@@ -721,6 +902,21 @@ function openItem(cod) {
         </div>`;
     
     document.getElementById('itemModal').classList.add('active');
+    
+    // Gerar QR Code no modal
+    setTimeout(() => {
+        const qrDetail = document.getElementById('qr-detail');
+        if (qrDetail && window.QRCode) {
+            qrDetail.innerHTML = '';
+            new QRCode(qrDetail, {
+                text: item.ean || item.cod1,
+                width: 120,
+                height: 120,
+                colorDark: "#1e6f8f",
+                colorLight: "#ffffff"
+            });
+        }
+    }, 100);
 }
 
 function closeModal() {
@@ -862,6 +1058,147 @@ function submitNF(e) {
     alert('Entrada de NF enviada com sucesso!');
 }
 
+// ======================= ETIQUETAS E QR CODES =======================
+function openEtiquetasModal() {
+    if (selectedItems.size === 0) {
+        alert('Selecione pelo menos 1 item marcando a caixinha no card');
+        return;
+    }
+    
+    const itemsArray = window.DATA.estoque.filter(i => selectedItems.has(i.cod1));
+    
+    let etiquetasHTML = '';
+    itemsArray.forEach((item, idx) => {
+        etiquetasHTML += `
+            <div class="etiqueta" id="etiqueta-${idx}">
+                <div class="etiqueta-header">
+                    <strong>RDS</strong>
+                    <span>${item.local||'N/I'}</span>
+                </div>
+                <div class="etiqueta-body">
+                    <div class="etiqueta-qr" id="qr-etiqueta-${idx}"></div>
+                    <div class="etiqueta-info">
+                        <p class="etiqueta-codigo">${item.cod1}</p>
+                        <p class="etiqueta-desc">${item.desc.substring(0, 40)}</p>
+                        <p class="etiqueta-ean">EAN: ${item.ean||'N/I'}</p>
+                    </div>
+                </div>
+            </div>`;
+    });
+    
+    const modalContent = document.getElementById('etiquetasContent');
+    modalContent.innerHTML = `
+        <div class="etiquetas-toolbar">
+            <button class="btn-login" onclick="selectAllItems();openEtiquetasModal();" style="flex:1;background:var(--primary-dark);">
+                <i class="material-icons-round">select_all</i> Todos
+            </button>
+            <button class="btn-login" onclick="deselectAllItems();closeEtiquetasModal();" style="flex:1;background:#ef4444;">
+                <i class="material-icons-round">deselect</i> Limpar
+            </button>
+            <button class="btn-login" onclick="imprimirEtiquetas()" style="flex:1;background:#10b981;">
+                <i class="material-icons-round">print</i> Imprimir
+            </button>
+        </div>
+        <div class="etiquetas-grid" id="etiquetasGrid">
+            ${etiquetasHTML}
+        </div>
+        <p style="text-align:center;color:var(--text-light);font-size:12px;margin-top:12px;">
+            ${itemsArray.length} etiquetas geradas • Formato A4 • 8 por página
+        </p>`;
+    
+    document.getElementById('etiquetasModal').classList.add('active');
+    
+    // Gerar QR Codes para cada etiqueta
+    setTimeout(() => {
+        itemsArray.forEach((item, idx) => {
+            const qrContainer = document.getElementById(`qr-etiqueta-${idx}`);
+            if (qrContainer && window.QRCode) {
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: item.ean || item.cod1,
+                    width: 100,
+                    height: 100,
+                    colorDark: "#1e6f8f",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            }
+        });
+    }, 200);
+}
+
+function closeEtiquetasModal() {
+    document.getElementById('etiquetasModal').classList.remove('active');
+}
+
+function imprimirEtiquetas() {
+    const etiquetasGrid = document.getElementById('etiquetasGrid');
+    if (!etiquetasGrid) return;
+    
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Etiquetas RDS</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                @page { size: A4; margin: 5mm; }
+                body { font-family: Arial, sans-serif; }
+                .etiquetas-print {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 4mm;
+                    padding: 2mm;
+                }
+                .etiqueta {
+                    border: 2px dashed #1e6f8f;
+                    padding: 6mm;
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                    height: 70mm;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    background: white;
+                }
+                .etiqueta-header {
+                    display: flex;
+                    justify-content: space-between;
+                    width: 100%;
+                    margin-bottom: 4mm;
+                }
+                .etiqueta-header strong { color: #1e6f8f; font-size: 16px; }
+                .etiqueta-header span { background: #1e6f8f; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+                .etiqueta-body { display: flex; align-items: center; gap: 4mm; }
+                .etiqueta-qr { flex-shrink: 0; }
+                .etiqueta-qr img { width: 35mm; height: 35mm; }
+                .etiqueta-info { font-size: 10px; }
+                .etiqueta-codigo { font-weight: bold; font-size: 14px; color: #1e6f8f; }
+                .etiqueta-desc { font-size: 10px; color: #333; margin: 2mm 0; }
+                .etiqueta-ean { font-size: 9px; color: #666; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="etiquetas-print">
+                ${etiquetasGrid.innerHTML}
+            </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
 // ======================= EXPORTAÇÃO =======================
 function showExportMenu() {
     document.getElementById('exportModal').classList.add('active');
@@ -959,6 +1296,7 @@ function handleLogin() {
 function handleLogout() {
     if (confirm('Deseja sair do sistema?')) {
         stopScanner();
+        selectedItems.clear();
         document.getElementById('app').classList.add('hidden');
         document.getElementById('login-screen').style.opacity = '1';
         document.getElementById('login-screen').classList.remove('hidden');
@@ -995,3 +1333,10 @@ window.clearSearch = clearSearch;
 window.prevPage = prevPage;
 window.nextPage = nextPage;
 window.onMachineChange = onMachineChange;
+window.toggleItemSelection = toggleItemSelection;
+window.selectAllItems = selectAllItems;
+window.deselectAllItems = deselectAllItems;
+window.openEtiquetasModal = openEtiquetasModal;
+window.closeEtiquetasModal = closeEtiquetasModal;
+window.imprimirEtiquetas = imprimirEtiquetas;
+window.registrarExecucaoPreventiva = registrarExecucaoPreventiva;
