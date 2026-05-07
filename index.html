@@ -256,51 +256,66 @@
     </div>
 </div>
 
-<!-- MODAL SAIDA DE MATERIAL -->
-<div class="modal" id="saidaModal" onclick="closeSaidaModal()">
+<!-- MODAL SAIDA DE MATERIAL (ATUALIZADO) -->
+<div class="modal" id="saidaModal" style="z-index:4000;" onclick="closeSaidaModal()">
     <div class="modal-content modal-nf" onclick="event.stopPropagation()">
         <div class="modal-header">
-            <h3>Saida de Material</h3>
+            <h3>📤 Saída de Material</h3>
             <button class="btn-close" onclick="closeSaidaModal()">
                 <i class="material-icons-round">close</i>
             </button>
         </div>
-        <div id="saidaItemInfo" style="margin-bottom:16px;"></div>
         <form id="saidaForm" onsubmit="submitSaida(event)">
+            <!-- Leitura de código -->
             <div class="form-group">
-                <label>Codigo do Material *</label>
+                <label>🔍 Ler Código de Barras ou QR Code</label>
                 <div class="search-with-scanner">
-                    <input type="text" id="saidaCodigo" class="form-input" placeholder="Codigo ou escanear" required oninput="buscarItemSaida()">
-                    <button type="button" class="btn-icon" onclick="startScannerForSaida()" title="Escanear">
+                    <input type="text" id="saidaCodigo" class="form-input" placeholder="Escaneie ou digite o código" oninput="buscarItemSaida()">
+                    <button type="button" class="btn-icon btn-scanner-saida" onclick="startScannerForSaida()" title="Escanear Múltiplos Itens" style="background:#1e6f8f;color:white;border-color:#1e6f8f;animation:pulse 2s infinite;">
                         <i class="material-icons-round">qr_code_scanner</i>
+                        <span>Escanear</span>
                     </button>
                 </div>
+                <div id="saidaItemInfo" style="margin-top:8px; font-size:13px;"></div>
             </div>
-            <div class="form-row-3">
+
+            <!-- Quantidade -->
+            <div class="form-group">
+                <label>Quantidade (padrão: 1)</label>
+                <input type="number" id="saidaQuantidade" class="form-input" min="1" value="1">
+            </div>
+
+            <!-- Lista de itens -->
+            <div class="form-group">
+                <label>📋 Itens na Saída: <span id="saidaTotalItens" style="background:#1e6f8f;color:white;padding:2px 8px;border-radius:10px;font-size:11px;">0</span></label>
+                <div id="saidaItensLista" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;padding:8px;background:var(--bg);">
+                    <p style="text-align:center;color:var(--text-light);padding:12px;">Nenhum item adicionado. Escaneie ou digite o código.</p>
+                </div>
+            </div>
+
+            <!-- OS e Responsável -->
+            <div class="form-row-2">
                 <div class="form-group">
-                    <label>Quantidade *</label>
-                    <input type="number" id="saidaQuantidade" class="form-input" min="1" value="1" required>
+                    <label>OS / Número</label>
+                    <input type="text" id="saidaOS" class="form-input" placeholder="OS-2026-001">
                 </div>
                 <div class="form-group">
-                    <label>OS / Numero</label>
-                    <input type="text" id="saidaOS" class="form-input" placeholder="OS ou referencia">
-                </div>
-                <div class="form-group">
-                    <label>Responsavel *</label>
+                    <label>Responsável *</label>
                     <input type="text" id="saidaResponsavel" class="form-input" placeholder="Nome" required>
                 </div>
             </div>
+
             <div class="form-group">
-                <label>Observacoes</label>
-                <textarea id="saidaObs" class="form-input" rows="2" placeholder="Motivo da saida..."></textarea>
+                <label>Observações</label>
+                <textarea id="saidaObs" class="form-input" rows="2" placeholder="Motivo da saída..."></textarea>
             </div>
+
             <button type="submit" class="btn-login" style="background:#ef4444;">
-                <i class="material-icons-round">output</i> REGISTRAR SAIDA
+                <i class="material-icons-round">output</i> REGISTRAR SAÍDA
             </button>
         </form>
     </div>
 </div>
-
 <!-- MODAL EXPORTACAO -->
 <div class="modal" id="exportModal" onclick="closeExportModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
