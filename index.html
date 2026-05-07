@@ -13,15 +13,33 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Adicionar no header-actions, após o botão de exportar -->
+<button class="btn-icon btn-etiquetas hidden" id="btnEtiquetas" onclick="openEtiquetasModal()" title="Gerar Etiquetas">
+    <i class="material-icons-round">qr_code_2</i>
+    <span>Etiquetas</span>
+    <span class="badge-etiquetas" id="badgeEtiquetasCount">0</span>
+</button>
 
+<!-- MODAL ETIQUETAS (adicionar após o modal de exportação) -->
+<div class="modal" id="etiquetasModal" onclick="closeEtiquetasModal()">
+    <div class="modal-content" style="max-width:700px;" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>📋 Gerar Etiquetas com QR Code</h3>
+            <button class="btn-close" onclick="closeEtiquetasModal()">
+                <i class="material-icons-round">close</i>
+            </button>
+        </div>
+        <div id="etiquetasContent"></div>
+    </div>
+</div>
 <!-- LOGIN -->
 <div id="login-screen">
     <div class="login-card">
         <div class="login-icon">
             <i class="material-icons-round">inventory_2</i>
         </div>
-        <h1>RDS</h1>
-        <p class="login-sub">R3 almoxarifado</p>
+        <h1>RDS.CONSULTA</h1>
+        <p class="login-sub">almoxarifado inteligente</p>
         <div class="input-group">
             <i class="material-icons-round">person</i>
             <input type="text" id="user" class="login-input" placeholder="Usuario" autocomplete="off">
@@ -31,7 +49,7 @@
             <input type="password" id="pass" class="login-input" placeholder="Senha">
         </div>
         <button class="btn-login" onclick="handleLogin()">ACESSAR SISTEMA</button>
-        <p class="version-text">v4.0 • almoxarifado inteligente</p>
+        <p class="version-text">v4.1 • almoxarifado inteligente</p>
     </div>
 </div>
 
@@ -48,19 +66,23 @@
                 <div class="header-actions">
                     <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">
                         <i class="material-icons-round" id="themeIcon">dark_mode</i>
-                        <span>Tema</span>
+                        <span class="btn-text">Tema</span>
                     </button>
                     <button class="btn-icon" onclick="openNFModal()" title="Nota Fiscal">
                         <i class="material-icons-round">receipt_long</i>
-                        <span>NF</span>
+                        <span class="btn-text">NF</span>
                     </button>
                     <button class="btn-icon" onclick="openSaidaModal()" title="Saida de Material">
                         <i class="material-icons-round">output</i>
-                        <span>Saida</span>
+                        <span class="btn-text">Saida</span>
+                    </button>
+                    <button class="btn-icon btn-scanner" onclick="startScanner()" title="Escanear Codigo">
+                        <i class="material-icons-round">qr_code_scanner</i>
+                        <span class="btn-text">Scan</span>
                     </button>
                     <button class="btn-icon" onclick="showExportMenu()" title="Exportar">
                         <i class="material-icons-round">download</i>
-                        <span>Exportar</span>
+                        <span class="btn-text">Exportar</span>
                     </button>
                     <button class="btn-icon" onclick="handleLogout()" title="Sair">
                         <i class="material-icons-round">logout</i>
@@ -76,9 +98,6 @@
                         <i class="material-icons-round">close</i>
                     </button>
                 </div>
-                <button class="btn-icon btn-scanner" onclick="startScanner()" title="Escanear Codigo de Barras">
-                    <i class="material-icons-round">qr_code_scanner</i>
-                </button>
             </div>
         </div>
     </header>
@@ -113,12 +132,8 @@
 
     <!-- CONTEUDO PRINCIPAL -->
     <main class="container">
-        <!-- Grid de Produtos -->
         <div class="grid" id="productGrid"></div>
-        
-        <!-- Grid de Preventivas -->
         <div class="preventivas-grid hidden" id="preventivasGrid"></div>
-        
         <div class="empty-state hidden" id="emptyState">
             <i class="material-icons-round">search_off</i>
             <p>Nenhum item encontrado</p>
@@ -137,7 +152,7 @@
     </div>
 </div>
 
-<!-- SCANNER MODAL -->
+<!-- MODAL SCANNER -->
 <div class="modal" id="scannerModal" onclick="stopScanner()">
     <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
@@ -146,9 +161,9 @@
                 <i class="material-icons-round">close</i>
             </button>
         </div>
-        <div id="qr-reader" style="width:100%; border-radius:16px; overflow:hidden;"></div>
-        <div id="qr-reader-results" style="margin-top:12px; text-align:center;"></div>
-        <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;">
+        <div id="qr-reader" style="width:100%;border-radius:16px;overflow:hidden;"></div>
+        <div id="qr-reader-results" style="margin-top:12px;"></div>
+        <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;background:#ef4444;">
             <i class="material-icons-round">stop</i> Parar Scanner
         </button>
     </div>
@@ -185,44 +200,57 @@
             </button>
         </div>
         <form id="nfForm" onsubmit="submitNF(event)">
-            <div class="form-row-2">
+            <div class="form-row-3">
                 <div class="form-group">
-                    <label>Numero NF</label>
+                    <label>Numero NF *</label>
                     <input type="text" id="nfNumero" class="form-input" placeholder="001234" required>
                 </div>
                 <div class="form-group">
-                    <label>Fornecedor</label>
-                    <input type="text" id="nfFornecedor" class="form-input" placeholder="Fornecedor" required>
+                    <label>RC (Requisicao)</label>
+                    <input type="text" id="nfRC" class="form-input" placeholder="RC-001">
+                </div>
+                <div class="form-group">
+                    <label>OC (Ordem)</label>
+                    <input type="text" id="nfOC" class="form-input" placeholder="OC-001">
                 </div>
             </div>
             <div class="form-group">
-                <label>Codigo do Material</label>
-                <input type="text" id="nfCodigo" class="form-input" placeholder="Codigo" required>
+                <label>Fornecedor *</label>
+                <input type="text" id="nfFornecedor" class="form-input" placeholder="Nome do fornecedor" required>
             </div>
             <div class="form-group">
-                <label>Descricao</label>
-                <input type="text" id="nfDescricao" class="form-input" placeholder="Descricao" required>
+                <label>Codigo do Material *</label>
+                <div class="search-with-scanner">
+                    <input type="text" id="nfCodigo" class="form-input" placeholder="Codigo" required>
+                    <button type="button" class="btn-icon" onclick="startScannerForNF()" title="Escanear">
+                        <i class="material-icons-round">qr_code_scanner</i>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Descricao *</label>
+                <input type="text" id="nfDescricao" class="form-input" placeholder="Descricao do material" required>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
-                    <label>Quantidade</label>
+                    <label>Quantidade *</label>
                     <input type="number" id="nfQuantidade" class="form-input" min="1" value="1" required>
                 </div>
                 <div class="form-group">
-                    <label>Local</label>
+                    <label>Local *</label>
                     <input type="text" id="nfLocal" class="form-input" placeholder="Ex: A01" required>
                 </div>
             </div>
             <div class="form-group">
-                <label>Maquina</label>
+                <label>Maquina / Aplicacao *</label>
                 <input type="text" id="nfMaquina" class="form-input" placeholder="Ex: EURO 5" required>
             </div>
             <div class="form-group">
                 <label>Observacoes</label>
-                <textarea id="nfObs" class="form-input" rows="2"></textarea>
+                <textarea id="nfObs" class="form-input" rows="2" placeholder="Observacoes adicionais..."></textarea>
             </div>
             <button type="submit" class="btn-login">
-                <i class="material-icons-round">send</i> ENVIAR ENTRADA
+                <i class="material-icons-round">send</i> ENVIAR ENTRADA NF
             </button>
         </form>
     </div>
@@ -237,34 +265,34 @@
                 <i class="material-icons-round">close</i>
             </button>
         </div>
+        <div id="saidaItemInfo" style="margin-bottom:16px;"></div>
         <form id="saidaForm" onsubmit="submitSaida(event)">
             <div class="form-group">
-                <label>Codigo do Material</label>
+                <label>Codigo do Material *</label>
                 <div class="search-with-scanner">
                     <input type="text" id="saidaCodigo" class="form-input" placeholder="Codigo ou escanear" required oninput="buscarItemSaida()">
                     <button type="button" class="btn-icon" onclick="startScannerForSaida()" title="Escanear">
                         <i class="material-icons-round">qr_code_scanner</i>
                     </button>
                 </div>
-                <div id="saidaItemInfo" style="margin-top:8px; font-size:13px;"></div>
             </div>
-            <div class="form-row-2">
+            <div class="form-row-3">
                 <div class="form-group">
-                    <label>Quantidade</label>
+                    <label>Quantidade *</label>
                     <input type="number" id="saidaQuantidade" class="form-input" min="1" value="1" required>
                 </div>
                 <div class="form-group">
                     <label>OS / Numero</label>
                     <input type="text" id="saidaOS" class="form-input" placeholder="OS ou referencia">
                 </div>
-            </div>
-            <div class="form-group">
-                <label>Responsavel</label>
-                <input type="text" id="saidaResponsavel" class="form-input" placeholder="Nome do responsavel" required>
+                <div class="form-group">
+                    <label>Responsavel *</label>
+                    <input type="text" id="saidaResponsavel" class="form-input" placeholder="Nome" required>
+                </div>
             </div>
             <div class="form-group">
                 <label>Observacoes</label>
-                <textarea id="saidaObs" class="form-input" rows="2"></textarea>
+                <textarea id="saidaObs" class="form-input" rows="2" placeholder="Motivo da saida..."></textarea>
             </div>
             <button type="submit" class="btn-login" style="background:#ef4444;">
                 <i class="material-icons-round">output</i> REGISTRAR SAIDA
@@ -282,7 +310,7 @@
                 <i class="material-icons-round">close</i>
             </button>
         </div>
-        <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex;flex-direction:column;gap:12px;">
             <button class="btn-login" onclick="exportToExcel()" style="background:#217346;">
                 <i class="material-icons-round">table_view</i> Exportar para Excel
             </button>
@@ -300,7 +328,7 @@
 <a href="https://wa.me/5531998771435" target="_blank" class="btn-whatsapp" title="WhatsApp">
     <i class="material-icons-round">chat</i>
 </a>
-
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="dados.js"></script>
 <script src="preventivas.js"></script>
 <script src="app.js"></script>
