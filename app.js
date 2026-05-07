@@ -7,9 +7,6 @@ const USERS = {
     "karen": "102030",
     "lidiane": "102030",
     "joaopedro": "102030"
-    "joao pedro": "102030"
-     "paulo henrique": "102030"
-    "kamilla": "102030"
 };
 
 // ======================= ESTADO GLOBAL =======================
