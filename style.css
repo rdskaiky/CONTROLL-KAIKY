@@ -1219,3 +1219,185 @@ main {
     background: #d1fae5;
     color: #065f46;
 }
+
+/* ======================= SCANNER SEMPRE NA FRENTE ======================= */
+#scannerModal {
+    z-index: 9999 !important;
+}
+
+#scannerModal.active {
+    display: flex !important;
+}
+
+#scannerModal .modal-content {
+    position: relative;
+    z-index: 10000;
+}
+
+/* Botão fechar scanner */
+#scannerModal .btn-login {
+    margin-top: 8px;
+}
+
+/* Lista de itens na saída */
+#saidaItensLista {
+    min-height: 60px;
+}
+
+#saidaItensLista > div {
+    transition: all 0.2s ease;
+}
+
+#saidaItensLista > div:hover {
+    background: #dcfce7 !important;
+}
+
+/* Animação de pulse no botão scanner */
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(30, 111, 143, 0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(30, 111, 143, 0); }
+}
+
+.btn-scanner-saida {
+    animation: pulse 2s infinite;
+    white-space: nowrap;
+}
+
+/* ======================= ETIQUETAS ======================= */
+.etiquetas-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.etiquetas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+@media (min-width: 768px) {
+    .etiquetas-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.etiqueta {
+    background: white;
+    border: 2px dashed var(--primary-dark);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+}
+
+.etiqueta:hover {
+    box-shadow: var(--shadow-md);
+    border-style: solid;
+}
+
+.etiqueta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.etiqueta-header strong {
+    color: var(--primary-dark);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.etiqueta-header span {
+    background: var(--primary-dark);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.etiqueta-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.etiqueta-qr {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.etiqueta-qr img {
+    width: 70px;
+    height: 70px;
+}
+
+.etiqueta-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.etiqueta-codigo {
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--primary-dark);
+    margin-bottom: 2px;
+}
+
+.etiqueta-desc {
+    font-size: 11px;
+    color: #333;
+    margin-bottom: 2px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.etiqueta-ean {
+    font-size: 10px;
+    color: #666;
+    font-weight: 600;
+}
+
+/* Modal de etiquetas maior */
+#etiquetasModal .modal-content {
+    max-width: 700px;
+    max-height: 90vh;
+}
+
+/* ======================= RESPONSIVO ======================= */
+@media (max-width: 500px) {
+    .etiquetas-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .etiqueta-body {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .search-with-scanner {
+        flex-direction: column;
+    }
+    
+    .btn-scanner-saida span {
+        display: inline;
+    }
+}
