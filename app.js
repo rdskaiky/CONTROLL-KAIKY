@@ -7,6 +7,9 @@ const USERS = {
     "karen": "102030",
     "lidiane": "102030",
     "joaopedro": "102030"
+    "joao pedro": "102030"
+     "paulo henrique": "102030"
+    "kamilla": "102030"
 };
 
 // ======================= ESTADO GLOBAL =======================
@@ -27,7 +30,9 @@ let scanCooldown = false;
 
 // QR Code & Etiquetas
 let selectedItems = new Set();
-let qrCodeGenerator = null;
+
+// Saída múltipla
+let saidaItens = []; // Array de itens na saída atual
 
 // ======================= INICIALIZAÇÃO =======================
 function initApp() {
@@ -370,7 +375,6 @@ function renderPreventivas() {
         data = data.filter(p => p.maquina === currentMachineFilter);
     }
     
-    // Ordenar: vencidas > próximas > ok
     const statusOrder = { 'vencida': 0, 'proxima': 1, 'ok': 2 };
     data.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
     
@@ -384,7 +388,6 @@ function renderPreventivas() {
     
     if (grid) {
         grid.innerHTML = data.map(p => {
-            // Status visual
             let statusHTML = '';
             let borderColor = 'var(--preventiva)';
             if (p.status === 'vencida') {
@@ -397,7 +400,6 @@ function renderPreventivas() {
                 statusHTML = '<span class="preventiva-status ok"><i class="material-icons-round">check_circle</i> EM DIA</span>';
             }
             
-            // Calcular dias
             let diasHTML = '';
             if (p.proximaExecucao) {
                 const hoje = new Date();
@@ -478,7 +480,6 @@ function registrarExecucaoPreventiva(id) {
     const hoje = new Date().toISOString().split('T')[0];
     p.ultimaExecucao = hoje;
     
-    // Calcular próxima data baseado na periodicidade
     const match = p.periodicidade.match(/(\d+)/);
     if (match) {
         const num = parseInt(match[0]);
@@ -618,7 +619,6 @@ function toggleItemSelection(cod, checkbox) {
     checkbox.classList.toggle('checked', checkbox.checked);
     updateStats();
     
-    // Mostrar/ocultar botão de etiquetas
     const btnEtiquetas = document.getElementById('btnEtiquetas');
     if (btnEtiquetas) {
         btnEtiquetas.classList.toggle('hidden', selectedItems.size === 0);
@@ -638,18 +638,26 @@ function deselectAllItems() {
     updateStats();
 }
 
-// ======================= SCANNER CÓDIGO DE BARRAS =======================
+// ======================= SCANNER CÓDIGO DE BARRAS (CORRIGIDO) =======================
 function startScanner(mode = "consulta") {
     scannerMode = mode;
     lastScannedCode = "";
     scanCooldown = false;
     
-    document.getElementById('scannerModal').classList.add('active');
+    // Garantir que o modal do scanner fique SEMPRE na frente
+    const scannerModal = document.getElementById('scannerModal');
+    scannerModal.style.zIndex = '9999'; // Z-index máximo
+    
+    scannerModal.classList.add('active');
+    
     document.getElementById('qr-reader-results').innerHTML = `
         <div style="text-align:center;padding:20px;">
             <i class="material-icons-round" style="font-size:40px;color:var(--primary-dark);animation:pulse 1.5s infinite;">qr_code_scanner</i>
             <p style="margin-top:12px;color:var(--text-light);">Aponte a camera para o codigo de barras</p>
             <p style="font-size:11px;color:var(--text-light);">EAN-13, EAN-8, Code 128, Code 39, QR Code, UPC</p>
+            <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;background:#ef4444;">
+                <i class="material-icons-round">close</i> Fechar Scanner
+            </button>
         </div>`;
     
     if (!html5QrCode) {
@@ -657,8 +665,8 @@ function startScanner(mode = "consulta") {
     }
     
     const config = {
-        fps: 10,
-        qrbox: { width: 280, height: 200 },
+        fps: 15, // Aumentado para leitura mais rápida
+        qrbox: { width: 300, height: 250 }, // Área maior de leitura
         aspectRatio: 1.0,
         formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
@@ -669,7 +677,9 @@ function startScanner(mode = "consulta") {
             Html5QrcodeSupportedFormats.UPC_A,
             Html5QrcodeSupportedFormats.UPC_E,
             Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.CODABAR
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+            Html5QrcodeSupportedFormats.AZTEC
         ]
     };
     
@@ -691,11 +701,16 @@ function startScanner(mode = "consulta") {
             <div style="background:#fee2e2;padding:16px;border-radius:16px;text-align:center;">
                 <i class="material-icons-round" style="font-size:40px;color:#ef4444;">error</i>
                 <p style="color:#991b1b;margin-top:8px;">${errorMsg}</p>
+                <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;background:#ef4444;">
+                    <i class="material-icons-round">close</i> Fechar
+                </button>
             </div>`;
     });
 }
 
 function startScannerForSaida() {
+    // Fechar modal de saída temporariamente
+    document.getElementById('saidaModal').style.display = 'none';
     startScanner("saida");
 }
 
@@ -707,16 +722,26 @@ function onScanSuccess(decodedText, decodedResult) {
     if (scannedCode === lastScannedCode) return;
     lastScannedCode = scannedCode;
     scanCooldown = true;
-    setTimeout(() => { scanCooldown = false; }, 2000);
+    setTimeout(() => { scanCooldown = false; }, 1500); // Cooldown reduzido
     
     playBeep();
     
     let item = findItemByAnyCode(scannedCode);
     
     if (scannerMode === "saida") {
-        document.getElementById('saidaCodigo').value = item ? item.cod1 : scannedCode;
-        buscarItemSaida();
-        stopScanner();
+        // Adicionar item na lista de saída
+        if (item) {
+            adicionarItemSaida(item);
+        } else {
+            alert(`Código ${scannedCode} não encontrado no estoque!`);
+        }
+        
+        // Reabrir modal de saída
+        document.getElementById('saidaModal').style.display = '';
+        document.getElementById('saidaModal').classList.add('active');
+        
+        // NÃO fecha o scanner - deixa aberto para múltiplas leituras
+        lastScannedCode = ""; // Reset para permitir ler o mesmo código novamente
         return;
     }
     
@@ -724,15 +749,19 @@ function onScanSuccess(decodedText, decodedResult) {
 }
 
 function findItemByAnyCode(code) {
+    // 1. Busca exata por EAN
     let item = window.DATA.estoque.find(i => i.ean === code);
     if (item) return item;
     
+    // 2. Busca exata por cod1 (case insensitive)
     item = window.DATA.estoque.find(i => i.cod1.toLowerCase() === code.toLowerCase());
     if (item) return item;
     
+    // 3. Busca exata por cod2
     item = window.DATA.estoque.find(i => i.cod2 === code);
     if (item) return item;
     
+    // 4. Busca normalizada (sem espaços, traços, pontos, barras)
     const normalizedCode = code.replace(/[\s\-\.\/]/g, '').toLowerCase();
     item = window.DATA.estoque.find(i => {
         const normalizedCod1 = i.cod1.replace(/[\s\-\.\/]/g, '').toLowerCase();
@@ -740,12 +769,14 @@ function findItemByAnyCode(code) {
     });
     if (item) return item;
     
+    // 5. Busca por EAN parcial (últimos 8 digitos)
     if (code.length >= 8) {
         const partialEAN = code.slice(-8);
         item = window.DATA.estoque.find(i => i.ean && i.ean.endsWith(partialEAN));
         if (item) return item;
     }
     
+    // 6. Busca por substring
     item = window.DATA.estoque.find(i => 
         (i.ean && i.ean.includes(code)) ||
         i.cod1.toLowerCase().includes(code.toLowerCase()) ||
@@ -792,6 +823,9 @@ function showScanResult(item, scannedCode) {
                         <i class="material-icons-round">share</i> WhatsApp
                     </button>
                 </div>
+                <button class="btn-login" onclick="stopScanner()" style="margin-top:8px;background:#ef4444;">
+                    <i class="material-icons-round">close</i> Fechar Scanner
+                </button>
             </div>`;
             
         setTimeout(() => {
@@ -799,7 +833,7 @@ function showScanResult(item, scannedCode) {
             if (qrDiv && window.QRCode) {
                 qrDiv.innerHTML = '';
                 new QRCode(qrDiv, {
-                    text: JSON.stringify({ cod1: item.cod1, ean: item.ean }),
+                    text: item.ean || item.cod1,
                     width: 80,
                     height: 80,
                     colorDark: "#1e6f8f",
@@ -826,12 +860,15 @@ function showScanResult(item, scannedCode) {
                         <i class="material-icons-round">search</i> Buscar
                     </button>
                 </div>
+                <button class="btn-login" onclick="stopScanner()" style="margin-top:8px;background:#64748b;">
+                    <i class="material-icons-round">close</i> Fechar Scanner
+                </button>
             </div>`;
     }
     
     document.getElementById('qr-reader-results').innerHTML = resultHTML;
     
-    if (item) {
+    if (item && scannerMode === "consulta") {
         setTimeout(() => stopScanner(), 3000);
     }
 }
@@ -843,13 +880,16 @@ function shareItemWhatsApp(cod1) {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
-function onScanError(err) {}
+function onScanError(err) {
+    // Erros normais de leitura são ignorados
+}
 
 function stopScanner() {
     scannerActive = false;
     lastScannedCode = "";
     scanCooldown = false;
     document.getElementById('scannerModal').classList.remove('active');
+    document.getElementById('scannerModal').style.zIndex = '4000';
     if (html5QrCode) {
         html5QrCode.stop().then(() => {}).catch(() => {});
     }
@@ -903,7 +943,6 @@ function openItem(cod) {
     
     document.getElementById('itemModal').classList.add('active');
     
-    // Gerar QR Code no modal
     setTimeout(() => {
         const qrDetail = document.getElementById('qr-detail');
         if (qrDetail && window.QRCode) {
@@ -931,7 +970,207 @@ function shareViaWhatsApp() {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
-// ======================= SAÍDA DE MATERIAL =======================
+// ======================= SAÍDA DE MATERIAL (CORRIGIDO - MÚLTIPLOS ITENS) =======================
+function adicionarItemSaida(item) {
+    const quantidade = parseInt(document.getElementById('saidaQuantidade').value) || 1;
+    
+    // Verificar se item já existe na lista
+    const existente = saidaItens.find(i => i.cod1 === item.cod1);
+    if (existente) {
+        existente.quantidade += quantidade;
+    } else {
+        saidaItens.push({
+            cod1: item.cod1,
+            desc: item.desc,
+            ean: item.ean,
+            quantidade: quantidade,
+            local: item.local,
+            maquina: item.maquina,
+            itemRef: item
+        });
+    }
+    
+    atualizarListaSaida();
+    document.getElementById('saidaCodigo').value = '';
+    document.getElementById('saidaQuantidade').value = '1';
+    
+    // Feedback visual
+    const scannerBtn = document.querySelector('#saidaModal .btn-scanner-saida');
+    if (scannerBtn) {
+        scannerBtn.style.animation = 'none';
+        scannerBtn.offsetHeight;
+        scannerBtn.style.animation = 'pulse 0.5s ease';
+    }
+}
+
+function removerItemSaida(index) {
+    saidaItens.splice(index, 1);
+    atualizarListaSaida();
+}
+
+function atualizarListaSaida() {
+    const listaDiv = document.getElementById('saidaItensLista');
+    const totalItensSpan = document.getElementById('saidaTotalItens');
+    
+    if (!listaDiv) return;
+    
+    if (saidaItens.length === 0) {
+        listaDiv.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:12px;">Nenhum item adicionado. Escaneie ou digite o código.</p>';
+        if (totalItensSpan) totalItensSpan.textContent = '0';
+        return;
+    }
+    
+    listaDiv.innerHTML = saidaItens.map((item, idx) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f0fdf4;border-radius:8px;margin-bottom:4px;gap:8px;">
+            <div style="flex:1;min-width:0;">
+                <strong style="font-size:13px;">${item.cod1}</strong>
+                <p style="font-size:11px;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.desc}</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <input type="number" value="${item.quantidade}" min="1" max="${item.itemRef.qtd}" 
+                       style="width:50px;padding:4px;border-radius:6px;border:1px solid #d1d5db;text-align:center;font-size:13px;"
+                       onchange="atualizarQuantidadeItem(${idx}, this.value)">
+                <span style="font-size:11px;color:var(--text-light);white-space:nowrap;">un</span>
+                <button onclick="removerItemSaida(${idx})" style="background:#fee2e2;border:none;color:#ef4444;cursor:pointer;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+                    <i class="material-icons-round" style="font-size:16px;">close</i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    if (totalItensSpan) totalItensSpan.textContent = saidaItens.length;
+}
+
+function atualizarQuantidadeItem(index, novaQtd) {
+    const qtd = parseInt(novaQtd);
+    if (isNaN(qtd) || qtd < 1) return;
+    
+    const item = saidaItens[index];
+    if (qtd > item.itemRef.qtd) {
+        alert(`Estoque insuficiente! Disponível: ${item.itemRef.qtd} unidades.`);
+        atualizarListaSaida();
+        return;
+    }
+    
+    item.quantidade = qtd;
+}
+
+function openSaidaModal() {
+    saidaItens = [];
+    document.getElementById('saidaModal').classList.add('active');
+    document.getElementById('saidaForm').reset();
+    document.getElementById('saidaItemInfo').innerHTML = '';
+    atualizarListaSaida();
+    scannerMode = "saida";
+}
+
+function closeSaidaModal() {
+    stopScanner();
+    document.getElementById('saidaModal').classList.remove('active');
+    document.getElementById('saidaModal').style.display = '';
+    saidaItens = [];
+}
+
+function submitSaida(e) {
+    e.preventDefault();
+    
+    const os = document.getElementById('saidaOS').value;
+    const responsavel = document.getElementById('saidaResponsavel').value;
+    const obs = document.getElementById('saidaObs').value;
+    
+    // Verificar itens adicionados via scanner
+    if (saidaItens.length === 0) {
+        // Modo manual: um único item
+        const codigo = document.getElementById('saidaCodigo').value.trim();
+        const quantidade = parseInt(document.getElementById('saidaQuantidade').value);
+        
+        if (!codigo) {
+            alert('Adicione pelo menos um item!');
+            return;
+        }
+        
+        const item = window.DATA.estoque.find(i => 
+            i.cod1.toLowerCase() === codigo.toLowerCase() || 
+            i.ean === codigo ||
+            i.cod2 === codigo
+        );
+        
+        if (!item) {
+            alert('Item nao encontrado!');
+            return;
+        }
+        
+        if (quantidade > item.qtd) {
+            alert(`Estoque insuficiente! Disponivel: ${item.qtd} unidades.`);
+            return;
+        }
+        
+        saidaItens.push({
+            cod1: item.cod1,
+            desc: item.desc,
+            quantidade: quantidade,
+            local: item.local,
+            maquina: item.maquina,
+            itemRef: item
+        });
+    }
+    
+    if (!responsavel) {
+        alert('Informe o responsável!');
+        return;
+    }
+    
+    // Processar todos os itens
+    let mensagem = `*SAIDA DE MATERIAL*%0A%0A`;
+    mensagem += `*Responsavel:* ${responsavel}%0A`;
+    if (os) mensagem += `*OS:* ${os}%0A`;
+    mensagem += `*Data:* ${new Date().toLocaleString('pt-BR')}%0A`;
+    mensagem += `%0A*ITENS:*%0A`;
+    
+    saidaItens.forEach((item, idx) => {
+        // Verificar estoque novamente
+        const itemAtual = window.DATA.estoque.find(i => i.cod1 === item.cod1);
+        if (!itemAtual) {
+            alert(`Item ${item.cod1} não encontrado!`);
+            return;
+        }
+        
+        if (item.quantidade > itemAtual.qtd) {
+            alert(`Estoque insuficiente para ${item.cod1}! Disponível: ${itemAtual.qtd}`);
+            return;
+        }
+        
+        // Debitar estoque
+        itemAtual.qtd -= item.quantidade;
+        
+        // Registrar histórico
+        window.DATA.historicoMov.unshift({
+            data: new Date().toLocaleString('pt-BR'),
+            tipo: "SAIDA",
+            material: item.desc,
+            codigo: item.cod1,
+            qtd: item.quantidade,
+            maquina: item.maquina,
+            responsavel: `${responsavel}${os ? ' / OS:' + os : ''}`,
+            obs: obs
+        });
+        
+        mensagem += `%0A${idx + 1}. *${item.cod1}* - ${item.desc}%0A   Qtd: ${item.quantidade} un | Local: ${item.local || 'N/I'}%0A   Estoque restante: ${itemAtual.qtd} un`;
+    });
+    
+    mensagem += `%0A%0A_RDS.CONSULTA_`;
+    
+    // Enviar WhatsApp
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensagem}`, '_blank');
+    
+    closeSaidaModal();
+    filterItems();
+    
+    const totalItens = saidaItens.length;
+    const totalQtd = saidaItens.reduce((sum, i) => sum + i.quantidade, 0);
+    alert(`Saída registrada com sucesso!\n${totalItens} item(ns) | ${totalQtd} unidades no total`);
+}
+
 function buscarItemSaida() {
     const codigo = document.getElementById('saidaCodigo').value.trim();
     const infoDiv = document.getElementById('saidaItemInfo');
@@ -958,63 +1197,6 @@ function buscarItemSaida() {
                 <strong>Item nao encontrado</strong>
             </div>`;
     }
-}
-
-function openSaidaModal() {
-    document.getElementById('saidaModal').classList.add('active');
-    document.getElementById('saidaForm').reset();
-    document.getElementById('saidaItemInfo').innerHTML = '';
-    scannerMode = "saida";
-}
-
-function closeSaidaModal() {
-    document.getElementById('saidaModal').classList.remove('active');
-}
-
-function submitSaida(e) {
-    e.preventDefault();
-    
-    const codigo = document.getElementById('saidaCodigo').value.trim();
-    const quantidade = parseInt(document.getElementById('saidaQuantidade').value);
-    const os = document.getElementById('saidaOS').value;
-    const responsavel = document.getElementById('saidaResponsavel').value;
-    const obs = document.getElementById('saidaObs').value;
-    
-    const item = window.DATA.estoque.find(i => 
-        i.cod1.toLowerCase() === codigo.toLowerCase() || 
-        i.ean === codigo ||
-        i.cod2 === codigo
-    );
-    
-    if (!item) {
-        alert('Item nao encontrado!');
-        return;
-    }
-    
-    if (quantidade > item.qtd) {
-        alert(`Estoque insuficiente! Disponivel: ${item.qtd} unidades.`);
-        return;
-    }
-    
-    item.qtd -= quantidade;
-    
-    window.DATA.historicoMov.unshift({
-        data: new Date().toLocaleString('pt-BR'),
-        tipo: "SAIDA",
-        material: item.desc,
-        codigo: item.cod1,
-        qtd: quantidade,
-        maquina: item.maquina,
-        responsavel: `${responsavel}${os ? ' / OS:' + os : ''}`,
-        obs: obs
-    });
-    
-    const message = `*SAIDA DE MATERIAL*%0A%0A*Codigo:* ${item.cod1}%0A*Material:* ${item.desc}%0A*Quantidade:* ${quantidade} un%0A*Local:* ${item.local}%0A*Responsavel:* ${responsavel}%0A${os ? '*OS:* ' + os + '%0A' : ''}*Estoque restante:* ${item.qtd} un%0A%0A_RDS.CONSULTA_`;
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
-    
-    closeSaidaModal();
-    filterItems();
-    alert(`Saida registrada! Estoque atualizado: ${item.qtd} unidades restantes.`);
 }
 
 // ======================= NOTA FISCAL =======================
@@ -1086,8 +1268,7 @@ function openEtiquetasModal() {
             </div>`;
     });
     
-    const modalContent = document.getElementById('etiquetasContent');
-    modalContent.innerHTML = `
+    document.getElementById('etiquetasContent').innerHTML = `
         <div class="etiquetas-toolbar">
             <button class="btn-login" onclick="selectAllItems();openEtiquetasModal();" style="flex:1;background:var(--primary-dark);">
                 <i class="material-icons-round">select_all</i> Todos
@@ -1103,12 +1284,11 @@ function openEtiquetasModal() {
             ${etiquetasHTML}
         </div>
         <p style="text-align:center;color:var(--text-light);font-size:12px;margin-top:12px;">
-            ${itemsArray.length} etiquetas geradas • Formato A4 • 8 por página
+            ${itemsArray.length} etiquetas geradas • Formato A4 • 2 por linha
         </p>`;
     
     document.getElementById('etiquetasModal').classList.add('active');
     
-    // Gerar QR Codes para cada etiqueta
     setTimeout(() => {
         itemsArray.forEach((item, idx) => {
             const qrContainer = document.getElementById(`qr-etiqueta-${idx}`);
@@ -1120,7 +1300,7 @@ function openEtiquetasModal() {
                     height: 100,
                     colorDark: "#1e6f8f",
                     colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.M
+                    correctLevel: QRCode.CorrectLevel.H
                 });
             }
         });
@@ -1178,9 +1358,6 @@ function imprimirEtiquetas() {
                 .etiqueta-codigo { font-weight: bold; font-size: 14px; color: #1e6f8f; }
                 .etiqueta-desc { font-size: 10px; color: #333; margin: 2mm 0; }
                 .etiqueta-ean { font-size: 9px; color: #666; }
-                @media print {
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                }
             </style>
         </head>
         <body>
@@ -1315,6 +1492,9 @@ window.openSaidaModal = openSaidaModal;
 window.closeSaidaModal = closeSaidaModal;
 window.submitSaida = submitSaida;
 window.buscarItemSaida = buscarItemSaida;
+window.adicionarItemSaida = adicionarItemSaida;
+window.removerItemSaida = removerItemSaida;
+window.atualizarQuantidadeItem = atualizarQuantidadeItem;
 window.shareViaWhatsApp = shareViaWhatsApp;
 window.shareItemWhatsApp = shareItemWhatsApp;
 window.sharePreventiva = sharePreventiva;
