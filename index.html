@@ -1,351 +1,83 @@
 <!DOCTYPE html>
-<html lang="pt-br" data-theme="light">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <title>Acesso ao Site</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDS.CONSULTA | Almoxarifado Inteligente</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #0f4c75, #3282b8);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 40px;
+            border-radius: 12px;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            font-size: 26px;
+        }
+
+        p {
+            font-size: 16px;
+            margin-bottom: 25px;
+        }
+
+        .whatsapp-btn {
+            display: inline-block;
+            background-color: #25d366;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .whatsapp-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        footer {
+            margin-top: 20px;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+    </style>
 </head>
 <body>
-<!-- Adicionar no header-actions, após o botão de exportar -->
-<button class="btn-icon btn-etiquetas hidden" id="btnEtiquetas" onclick="openEtiquetasModal()" title="Gerar Etiquetas">
-    <i class="material-icons-round">qr_code_2</i>
-    <span>Etiquetas</span>
-    <span class="badge-etiquetas" id="badgeEtiquetasCount">0</span>
-</button>
 
-<!-- MODAL ETIQUETAS (adicionar após o modal de exportação) -->
-<div class="modal" id="etiquetasModal" onclick="closeEtiquetasModal()">
-    <div class="modal-content" style="max-width:700px;" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3>📋 Gerar Etiquetas com QR Code</h3>
-            <button class="btn-close" onclick="closeEtiquetasModal()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <div id="etiquetasContent"></div>
-    </div>
-</div>
-<!-- LOGIN -->
-<div id="login-screen">
-    <div class="login-card">
-        <div class="login-icon">
-            <i class="material-icons-round">inventory_2</i>
-        </div>
-        <h1>RDS.CONSULTA</h1>
-        <p class="login-sub">almoxarifado inteligente</p>
-        <div class="input-group">
-            <i class="material-icons-round">person</i>
-            <input type="text" id="user" class="login-input" placeholder="Usuario" autocomplete="off">
-        </div>
-        <div class="input-group">
-            <i class="material-icons-round">lock</i>
-            <input type="password" id="pass" class="login-input" placeholder="Senha">
-        </div>
-        <button class="btn-login" onclick="handleLogin()">ACESSAR SISTEMA</button>
-        <p class="version-text">v4.1 • almoxarifado inteligente</p>
-    </div>
-</div>
+    <div class="container">
+        <h1>Acesso ao Site</h1>
+        <p>
+            Para ter acesso novamente ao site, entre em contato com
+            <strong>Kaiky RDS</strong>.
+        </p>
 
-<!-- APP PRINCIPAL -->
-<div id="app" class="hidden">
-    <!-- HEADER -->
-    <header>
-        <div class="container">
-            <div class="header-top">
-                <div class="header-title">
-                    <i class="material-icons-round">inventory_2</i>
-                    <span>RDS.CONSULTA</span>
-                </div>
-                <div class="header-actions">
-                    <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">
-                        <i class="material-icons-round" id="themeIcon">dark_mode</i>
-                        <span class="btn-text">Tema</span>
-                    </button>
-                    <button class="btn-icon" onclick="openNFModal()" title="Nota Fiscal">
-                        <i class="material-icons-round">receipt_long</i>
-                        <span class="btn-text">NF</span>
-                    </button>
-                    <button class="btn-icon" onclick="openSaidaModal()" title="Saida de Material">
-                        <i class="material-icons-round">output</i>
-                        <span class="btn-text">Saida</span>
-                    </button>
-                    <button class="btn-icon btn-scanner" onclick="startScanner()" title="Escanear Codigo">
-                        <i class="material-icons-round">qr_code_scanner</i>
-                        <span class="btn-text">Scan</span>
-                    </button>
-                    <button class="btn-icon" onclick="showExportMenu()" title="Exportar">
-                        <i class="material-icons-round">download</i>
-                        <span class="btn-text">Exportar</span>
-                    </button>
-                    <button class="btn-icon" onclick="handleLogout()" title="Sair">
-                        <i class="material-icons-round">logout</i>
-                    </button>
-                </div>
-            </div>
-            <div class="stats-bar" id="statsBar"></div>
-            <div class="search-row">
-                <div class="search-bar">
-                    <i class="material-icons-round">search</i>
-                    <input type="text" id="mainSearch" class="search-input" placeholder="Buscar por codigo, descricao ou maquina... (Ctrl+K)">
-                    <button class="btn-clear-search hidden" id="btnClearSearch" onclick="clearSearch()">
-                        <i class="material-icons-round">close</i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
+        <a class="whatsapp-btn"
+           href="https://wa.me/5531998771435"
+           target="_blank">
+            Entrar em contato pelo WhatsApp
+        </a>
 
-    <!-- FILTROS -->
-    <div class="filters-container">
-        <div class="container">
-            <div class="filters-row">
-                <div class="tabs" id="catTabs">
-                    <div class="tab active" data-filter="Todos">Todos</div>
-                    <div class="tab" data-filter="FILTRO">Filtros</div>
-                    <div class="tab" data-filter="PECAS">Pecas</div>
-                    <div class="tab" data-filter="CALDERARIA">Caldeiraria</div>
-                    <div class="tab tab-alert" data-filter="PENDENTES">
-                        Pendentes <span class="badge-count hidden" id="pendentesCount">0</span>
-                    </div>
-                    <div class="tab tab-preventiva" data-filter="PREVENTIVAS">
-                        Preventivas <span class="badge-count hidden" id="preventivasCount">0</span>
-                    </div>
-                </div>
-                <div class="machine-filter">
-                    <span class="filter-label">
-                        <i class="material-icons-round">memory</i> Maquina:
-                    </span>
-                    <select id="machineSelect" class="machine-select" onchange="onMachineChange()">
-                        <option value="Todas">Todas</option>
-                    </select>
-                </div>
-            </div>
-        </div>
+        <footer>
+            © 2026 • Suporte e acesso
+        </footer>
     </div>
 
-    <!-- CONTEUDO PRINCIPAL -->
-    <main class="container">
-        <div class="grid" id="productGrid"></div>
-        <div class="preventivas-grid hidden" id="preventivasGrid"></div>
-        <div class="empty-state hidden" id="emptyState">
-            <i class="material-icons-round">search_off</i>
-            <p>Nenhum item encontrado</p>
-        </div>
-    </main>
-
-    <!-- PAGINACAO -->
-    <div class="pagination hidden" id="pagination">
-        <button class="btn-page" onclick="prevPage()">
-            <i class="material-icons-round">chevron_left</i>
-        </button>
-        <span class="page-info" id="pageInfo">1 de 1</span>
-        <button class="btn-page" onclick="nextPage()">
-            <i class="material-icons-round">chevron_right</i>
-        </button>
-    </div>
-</div>
-
-<!-- MODAL SCANNER -->
-<div class="modal" id="scannerModal" onclick="stopScanner()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3>Escanear Codigo de Barras</h3>
-            <button class="btn-close" onclick="stopScanner()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <div id="qr-reader" style="width:100%;border-radius:16px;overflow:hidden;"></div>
-        <div id="qr-reader-results" style="margin-top:12px;"></div>
-        <button class="btn-login" onclick="stopScanner()" style="margin-top:12px;background:#ef4444;">
-            <i class="material-icons-round">stop</i> Parar Scanner
-        </button>
-    </div>
-</div>
-
-<!-- MODAL DETALHES -->
-<div class="modal" id="itemModal" onclick="closeModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3 id="modalTitle">Detalhes do Item</h3>
-            <button class="btn-close" onclick="closeModal()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <div id="modalData"></div>
-        <div class="modal-actions">
-            <button class="btn-action" onclick="shareViaWhatsApp()">
-                <i class="material-icons-round">share</i> Compartilhar
-            </button>
-            <button class="btn-action btn-primary" onclick="closeModal()">
-                <i class="material-icons-round">check</i> Fechar
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL NOTA FISCAL -->
-<div class="modal" id="nfModal" onclick="closeNFModal()">
-    <div class="modal-content modal-nf" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3>Entrada de Nota Fiscal</h3>
-            <button class="btn-close" onclick="closeNFModal()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <form id="nfForm" onsubmit="submitNF(event)">
-            <div class="form-row-3">
-                <div class="form-group">
-                    <label>Numero NF *</label>
-                    <input type="text" id="nfNumero" class="form-input" placeholder="001234" required>
-                </div>
-                <div class="form-group">
-                    <label>RC (Requisicao)</label>
-                    <input type="text" id="nfRC" class="form-input" placeholder="RC-001">
-                </div>
-                <div class="form-group">
-                    <label>OC (Ordem)</label>
-                    <input type="text" id="nfOC" class="form-input" placeholder="OC-001">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Fornecedor *</label>
-                <input type="text" id="nfFornecedor" class="form-input" placeholder="Nome do fornecedor" required>
-            </div>
-            <div class="form-group">
-                <label>Codigo do Material *</label>
-                <div class="search-with-scanner">
-                    <input type="text" id="nfCodigo" class="form-input" placeholder="Codigo" required>
-                    <button type="button" class="btn-icon" onclick="startScannerForNF()" title="Escanear">
-                        <i class="material-icons-round">qr_code_scanner</i>
-                    </button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Descricao *</label>
-                <input type="text" id="nfDescricao" class="form-input" placeholder="Descricao do material" required>
-            </div>
-            <div class="form-row-2">
-                <div class="form-group">
-                    <label>Quantidade *</label>
-                    <input type="number" id="nfQuantidade" class="form-input" min="1" value="1" required>
-                </div>
-                <div class="form-group">
-                    <label>Local *</label>
-                    <input type="text" id="nfLocal" class="form-input" placeholder="Ex: A01" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Maquina / Aplicacao *</label>
-                <input type="text" id="nfMaquina" class="form-input" placeholder="Ex: EURO 5" required>
-            </div>
-            <div class="form-group">
-                <label>Observacoes</label>
-                <textarea id="nfObs" class="form-input" rows="2" placeholder="Observacoes adicionais..."></textarea>
-            </div>
-            <button type="submit" class="btn-login">
-                <i class="material-icons-round">send</i> ENVIAR ENTRADA NF
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL SAIDA DE MATERIAL (ATUALIZADO) -->
-<div class="modal" id="saidaModal" style="z-index:4000;" onclick="closeSaidaModal()">
-    <div class="modal-content modal-nf" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3>📤 Saída de Material</h3>
-            <button class="btn-close" onclick="closeSaidaModal()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <form id="saidaForm" onsubmit="submitSaida(event)">
-            <!-- Leitura de código -->
-            <div class="form-group">
-                <label>🔍 Ler Código de Barras ou QR Code</label>
-                <div class="search-with-scanner">
-                    <input type="text" id="saidaCodigo" class="form-input" placeholder="Escaneie ou digite o código" oninput="buscarItemSaida()">
-                    <button type="button" class="btn-icon btn-scanner-saida" onclick="startScannerForSaida()" title="Escanear Múltiplos Itens" style="background:#1e6f8f;color:white;border-color:#1e6f8f;animation:pulse 2s infinite;">
-                        <i class="material-icons-round">qr_code_scanner</i>
-                        <span>Escanear</span>
-                    </button>
-                </div>
-                <div id="saidaItemInfo" style="margin-top:8px; font-size:13px;"></div>
-            </div>
-
-            <!-- Quantidade -->
-            <div class="form-group">
-                <label>Quantidade (padrão: 1)</label>
-                <input type="number" id="saidaQuantidade" class="form-input" min="1" value="1">
-            </div>
-
-            <!-- Lista de itens -->
-            <div class="form-group">
-                <label>📋 Itens na Saída: <span id="saidaTotalItens" style="background:#1e6f8f;color:white;padding:2px 8px;border-radius:10px;font-size:11px;">0</span></label>
-                <div id="saidaItensLista" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;padding:8px;background:var(--bg);">
-                    <p style="text-align:center;color:var(--text-light);padding:12px;">Nenhum item adicionado. Escaneie ou digite o código.</p>
-                </div>
-            </div>
-
-            <!-- OS e Responsável -->
-            <div class="form-row-2">
-                <div class="form-group">
-                    <label>OS / Número</label>
-                    <input type="text" id="saidaOS" class="form-input" placeholder="OS-2026-001">
-                </div>
-                <div class="form-group">
-                    <label>Responsável *</label>
-                    <input type="text" id="saidaResponsavel" class="form-input" placeholder="Nome" required>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Observações</label>
-                <textarea id="saidaObs" class="form-input" rows="2" placeholder="Motivo da saída..."></textarea>
-            </div>
-
-            <button type="submit" class="btn-login" style="background:#ef4444;">
-                <i class="material-icons-round">output</i> REGISTRAR SAÍDA
-            </button>
-        </form>
-    </div>
-</div>
-<!-- MODAL EXPORTACAO -->
-<div class="modal" id="exportModal" onclick="closeExportModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3>Exportar Dados</h3>
-            <button class="btn-close" onclick="closeExportModal()">
-                <i class="material-icons-round">close</i>
-            </button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-            <button class="btn-login" onclick="exportToExcel()" style="background:#217346;">
-                <i class="material-icons-round">table_view</i> Exportar para Excel
-            </button>
-            <button class="btn-login" onclick="exportToPDF()" style="background:#ef4444;">
-                <i class="material-icons-round">picture_as_pdf</i> Exportar para PDF
-            </button>
-            <button class="btn-login" onclick="exportToJSON()" style="background:#6366f1;">
-                <i class="material-icons-round">code</i> Exportar JSON
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- BOTAO WHATSAPP -->
-<a href="https://wa.me/5531998771435" target="_blank" class="btn-whatsapp" title="WhatsApp">
-    <i class="material-icons-round">chat</i>
-</a>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="dados.js"></script>
-<script src="preventivas.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
